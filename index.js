@@ -5,7 +5,13 @@ require('dotenv').config()
 const interfaces = networkInterfaces()
 const eth0 = interfaces.eth0 ? interfaces.eth0.filter((a) => a.family === 'IPv4')[0].address : ''
 
-console.log(`eth0=${eth0}`)
+console.log('***')
+console.log('* ddnet irc bot - call !mods on ddnet dvlpr irc')
+console.log('*')
+console.log(`* eth0=${eth0}`)
+console.log(`* irc channel=${process.env.IRC_CHANNEL}`)
+console.log(`* mod ping=${process.env.MOD_PING}`)
+console.log('***')
 
 const getServerIpsByPlayerName = async (searchName) => {
 	const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
@@ -17,10 +23,10 @@ const getServerIpsByPlayerName = async (searchName) => {
 			matchedEntries.push(entry)
 		}
 	})
-	console.log(matchedEntries)
+	// console.log(matchedEntries)
 	matchedEntries = matchedEntries.filter((e) => e.info.name.startsWith('DDNet '))
 
-	console.log(matchedEntries)
+	// console.log(matchedEntries)
 	const ips = []
 	matchedEntries.forEach((entry) => {
 		entry.addresses
@@ -33,7 +39,7 @@ const getServerIpsByPlayerName = async (searchName) => {
 
 const sendHelpToChiler = async () => {
 	const links = await getServerIpsByPlayerName('ChillerDragon')
-	console.log(links)
+	// console.log(links)
 	if (links.length === 0) {
 		console.log('WARNOING chiler not foudn')
 		return 'chiler is in danger on a unknown tw server'
@@ -44,25 +50,24 @@ const sendHelpToChiler = async () => {
 }
 
 const client = new irc.Client('irc.ipv6.quakenet.org', 'chillerbot', {
-	channels: ['#ddnet'],
+	channels: [`#${process.env.IRC_CHANNEL}`],
 })
 
-client.addListener('message#ddnet', async (from, message) => {
+client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
 	console.log(`<${from}> ${message}`)
 	if (message[0] !== '!') {
 		return
 	}
 	const cmd = message.substr(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		client.say('#ddnet', `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods`);
+		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods`);
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if (from !== 'ChillerDragon') {
-			client.say('#ddnet', 'only papa chiler can pinger.');
+			client.say(`#${process.env.IRC_CHANNEL}`, 'only papa chiler can pinger.');
 			return
 		}
 		const helpTxt = await sendHelpToChiler()
-		const helpMsg = `${process.env.MOD_PING} ${await sendHelpToChiler()}`
-		client.say('#ddnet', process.env.MOD_PING);
+		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
 	}
 })
 
