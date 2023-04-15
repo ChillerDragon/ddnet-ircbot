@@ -11,7 +11,10 @@ client.addListener('message#ddnet', (from, message) => {
 		return
 	}
 	const cmd = message.substr(1)
-	if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
+	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
+		const localIp = a.eth0.filter((a) => a.family === 'IPv4')[0].address
+		client.say('#ddnet', `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0}`);
+	else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if (from !== 'ChillerDragon') {
 			client.say('#ddnet', 'only papa chiler can pinger.');
 			return
