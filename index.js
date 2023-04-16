@@ -61,6 +61,8 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	const cmd = message.substr(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
 		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods`);
+	} else if (cmd === 'ping') {
+		client.say(`#${process.env.IRC_CHANNEL}`, 'pong')
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if (from !== 'ChillerDragon') {
 			client.say(`#${process.env.IRC_CHANNEL}`, 'only papa chiler can pinger.');
