@@ -54,10 +54,12 @@ const client = new irc.Client('irc.ipv6.quakenet.org', 'chillerbot', {
 })
 
 client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
+	let isBridge = false
 	if (from === 'bridge') {
 		const slibbers = message.split('>')
 		from = slibbers[0].substr(1)
 		message = slibbers.slice(1).join('>').substr(1)
+		isBridge = true
 	}
 	console.log(`<${from}> ${message}`)
 	if (message[0] !== '!') {
@@ -65,12 +67,16 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	}
 	const cmd = message.substr(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods`);
+		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping`);
 	} else if (cmd === 'ping') {
 		client.say(`#${process.env.IRC_CHANNEL}`, 'pong')
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if (from !== 'ChillerDragon') {
 			client.say(`#${process.env.IRC_CHANNEL}`, 'only papa chiler can pinger.');
+			return
+		}
+		if (isBridge) {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'this command only works from irc');
 			return
 		}
 		const helpTxt = await sendHelpToChiler()
