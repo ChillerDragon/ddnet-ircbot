@@ -54,6 +54,11 @@ const client = new irc.Client('irc.ipv6.quakenet.org', 'chillerbot', {
 })
 
 client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
+	if (from === 'bridge') {
+		const slibbers = message.split('>')
+		from = slibbers[0].substr(1)
+		message = slibbers.slice(1).join('>')
+	}
 	console.log(`<${from}> ${message}`)
 	if (message[0] !== '!') {
 		return
