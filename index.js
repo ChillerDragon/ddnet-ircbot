@@ -57,7 +57,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	if (from === 'bridge') {
 		const slibbers = message.split('>')
 		from = slibbers[0].substr(1)
-		message = slibbers.slice(1).join('>')
+		message = slibbers.slice(1).join('>').substr(1)
 	}
 	console.log(`<${from}> ${message}`)
 	if (message[0] !== '!') {
