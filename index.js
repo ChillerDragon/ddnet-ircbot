@@ -61,7 +61,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		message = slibbers.slice(1).join('>').substr(1)
 		isBridge = true
 	}
-	console.log(`<${from}> ${message}`)
+	console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
 	if (message[0] !== '!') {
 		return
 	}
