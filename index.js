@@ -62,6 +62,14 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		isBridge = true
 	}
 	console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
+	if (!isBridge) {
+		const ghIssueRegex = /#(\d+)/
+		const match = ghIssueRegex.exec(message)
+		if (match) {
+			const ghUrl = `https://github.com(ddnet/ddnet/${match[1]}`
+			client.say(`#${process.env.IRC_CHANNEL}`, ghUrl);
+		}
+	}
 	if (message[0] !== '!') {
 		return
 	}
