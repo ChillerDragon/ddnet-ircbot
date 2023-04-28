@@ -105,7 +105,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	if (message[0] !== '!') {
 		return
 	}
-	const words = message.substr(1).split(' ').filter((a) => a !== '') 
+	// delete doubled spaces
+	// const words = message.substr(1).split(' ').filter((a) => a !== '') 
+	const words = message.substr(1).split(' ') // keep double spaces
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
@@ -120,11 +122,11 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		if(!isPapaChiler(from, isBridge, client)) {
 			return
 		}
-		if (args.length !== 2) {
+		if (args.length < 2) {
 			client.say(`#${process.env.IRC_CHANNEL}`, 'usage: add_ping_ping <ping> <pong>')
 			return
 		}
-		fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args[1]}\n`);
+		fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args.slice(1).join(' ')}\n`);
 	} else {
 		const pong = checkPingPongCmd(cmd)
 		if(pong) {
