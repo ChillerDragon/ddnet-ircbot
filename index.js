@@ -120,7 +120,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		const helpTxt = await sendHelpToChiler()
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
-		const pythonProcess = spawn('python', ["hex_to_pack.py", args.join(' ')])
+		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data) => {
 			client.say(`#${process.env.IRC_CHANNEL}`, data)
 		});
