@@ -86,6 +86,8 @@ const isPapaChiler = (from, isBridge, client) => {
 	return true
 }
 
+const messageQueue = []
+
 client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
 	let isBridge = false
 	if (from === 'bridge') {
@@ -122,7 +124,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data) => {
-			client.say(`#${process.env.IRC_CHANNEL}`, data)
+			data.toString().split('\n').forEach((line) => {
+				messageQueue.push(line)
+			})
 		});
 	} else if (cmd === 'add_ping_pong') {
 		if(!isPapaChiler(from, isBridge, client)) {
@@ -144,4 +148,14 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 client.addListener('error', (message) => {
 	console.log('error: ', message)
 })
+
+const printQueue = () => {
+	if (messageQueue.length <= 0) {
+		return
+	}
+	console.log(`print queue ${messageQueue.length} items left`)
+	client.say(`#${process.env.IRC_CHANNEL}`, messageQueue.shift())
+}
+
+setInterval(printQueue, 2000)
 

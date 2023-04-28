@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import time
 
 import twnet_parser.packet
 
@@ -25,9 +26,13 @@ except:
 
 def code(msg):
     print(f"```{msg}```")
+    sys.stdout.flush()
 
-code(packet)
+code(packet.version)
+time.sleep(1)
 code(packet.header)
+time.sleep(3)
 for msg in packet.messages:
+    time.sleep(2)
     code(msg)
 
