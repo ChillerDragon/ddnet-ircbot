@@ -78,6 +78,8 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping`);
 	} else if (cmd === 'ping') {
 		client.say(`#${process.env.IRC_CHANNEL}`, 'pong')
+	} else if (cmd === 'bing') {
+		client.say(`#${process.env.IRC_CHANNEL}`, 'bong')
 	} else if (cmd === 'pig') {
 		client.say(`#${process.env.IRC_CHANNEL}`, 'pog')
 	} else if (cmd === 'beep') {
