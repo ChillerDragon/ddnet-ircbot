@@ -114,7 +114,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping`);
+		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc)`);
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if(!isPapaChiler(from, isBridge, client)) {
 			return
