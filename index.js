@@ -1,6 +1,7 @@
 const irc = require('irc')
 const { networkInterfaces } = require('os')
 const fs = require('fs')
+const spawn = require('child_process').spawn
 require('dotenv').config()
 
 const interfaces = networkInterfaces()
@@ -118,6 +119,11 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		}
 		const helpTxt = await sendHelpToChiler()
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
+	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
+		const pythonProcess = spawn('python', ["hex_to_pack.py", args.join(' ')])
+		pythonProcess.stdout.on('data', (data) => {
+			client.say(`#${process.env.IRC_CHANNEL}`, data)
+		});
 	} else if (cmd === 'add_ping_pong') {
 		if(!isPapaChiler(from, isBridge, client)) {
 			return
