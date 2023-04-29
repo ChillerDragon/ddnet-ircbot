@@ -151,6 +151,9 @@ const safeBash = (userinput) => {
 	if (userinput === 'neofetch' || userinput === 'neofetch;') {
 		return userinput
 	}
+	if (["ls", "ls .", "ls;", "ls .;"].includes(userinput)) {
+		return userinput
+	}
 	const safeToReadFiles = [
 		'/proc/stat',
 		'/etc/os-release',
@@ -162,7 +165,6 @@ const safeBash = (userinput) => {
 		'package-lock.json',
 		'README.md',
 		'tags',
-		'.env',
 		'env.example'
 	]
 	let safe = false
