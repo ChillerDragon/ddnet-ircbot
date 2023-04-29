@@ -175,7 +175,7 @@ const safeBash = (userinput) => {
 			return
 		}
 		const grep = 'e?grep(\\s+\\-[vFinl])?'
-		const grepPattern = new RegExp(`^cat\\s+${file}\\s+|\\s+${grep}\\s+[a-zA-Z0-9_]+$`)
+		const grepPattern = new RegExp(`^cat\\s+${file}\\s+\\|\\s+${grep}\\s+[a-zA-Z0-9_]+$`)
 		if (grepPattern.test(userinput)) {
 			safe = userinput
 			return
