@@ -458,6 +458,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	} else if (cmd === 'bash' || cmd === 'sh' || cmd === 'shell') {
 		if (process.env.ALLOW_BASH == '0' ) {
 			client.say(`#${process.env.IRC_CHANNEL}`, 'bash broken because i got hacked')
+			return
 		}
 		const userinput = args.join(' ')
 		const safe = safeBash(userinput)
