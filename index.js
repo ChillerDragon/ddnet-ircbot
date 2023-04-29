@@ -471,7 +471,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 				if (numStdout === maxStdout) { line = 'max stdout ...' }
 				if (numStdout > maxStdout) { return }	
 
-				client.say(`#${process.env.IRC_CHANNEL}`, line)
+				messageQueue.push(line)
 			})
 		});
 	} else if (cmd === 'python' || cmd === 'py') {
