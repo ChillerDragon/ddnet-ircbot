@@ -121,6 +121,22 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		}
 		const helpTxt = await sendHelpToChiler()
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
+	} else if (cmd === 'python') {
+		let pycode = 'print(2 + 2)'
+		const userinput = args.join(' ')
+		if (/^print\((\s?\d+\s?[\+\-\*\/]*)+\)$/.test(userinput)) {
+			pycode = userinput
+		} else if (/^(\s?\d+\s?[\+\-\*\/]*)+$/.test(userinput)) {
+			pycode = `print(${userinput})`
+		}
+		const pythonProcess = spawn('python3', ['-c', pycode])
+		pythonProcess.stdout.on('data', (data) => {
+			data.toString().split('\n').forEach((line) => {
+				setTimeout(() => {
+					messageQueue.push(line)
+				}, 5000)
+			})
+		});
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data) => {
