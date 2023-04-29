@@ -138,6 +138,55 @@ const maffsPython = (userinput) => {
 	return pycode
 }
 
+const safeBash = (userinput) => {
+	if (userinput === 'uname' || userinput === 'uname;' || userinput === 'uname -r') {
+		return userinput
+	}
+	if (userinput === 'uptime' || userinput === 'uptime;') {
+		return userinput
+	}
+	if (userinput === 'uptime' || userinput === 'uptime;') {
+		return userinput
+	}
+	if (userinput === 'neofetch' || userinput === 'neofetch;') {
+		return userinput
+	}
+	const safeToReadFiles = [
+		'/proc/stat',
+		'/etc/os-release',
+		'LICENSE',
+		'ping_pong.csv',
+		'hex_to_pack.py',
+		'index.js',
+		'package.json',
+		'package-lock.json',
+		'README.md',
+		'tags',
+		'.env',
+		'env.example'
+	]
+	let safe = false
+	safeToReadFiles.forEach((file) => {
+		const catPattern = new RegExp(`^cat\\s+${file}$`)
+		if (catPattern.test(userinput)) {
+			safe = userinput
+			return
+		}
+		const grep = 'e?grep(\\s+\\-[vFinl])?'
+		const grepPattern = new RegExp(`^cat\\s+${file}\\s+|\\s+${grep}\\s+[a-zA-Z0-9_]+$`)
+		if (grepPattern.test(userinput)) {
+			safe = userinput
+			return
+		}
+		const grepPatternGoodStyle = new RegExp(`^${grep}\\s+[a-zA-Z0-9_]+\\s+${file}$`)
+		if (grepPatternGoodStyle.test(userinput)) {
+			safe = userinput
+			return
+		}
+	})
+	return safe
+}
+
 const fakeBash = (userinput) => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
 		return 'Killed'
@@ -404,18 +453,58 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 				}
 			})
 		});
-	} else if (cmd === 'python') {
+	} else if (cmd === 'bash' || cmd === 'sh' || cmd === 'shell') {
+		const userinput = args.join(' ')
+		const safe = safeBash(userinput)
+		if(!safe) {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'unsafe bash')
+		}
+		const shProc = spawn('bash', ['-c', safe])
+		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
+		let numStdout = 0
+		shProc.stderr.on('data', (data) => {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'bash error')
+		})
+		shProc.stdout.on('data', (data) => {
+			data.toString().split('\n').forEach((line) => {
+				numStdout += 1
+				if (numStdout === maxStdout) { line = 'max stdout ...' }
+				if (numStdout > maxStdout) { return }	
+
+				client.say(`#${process.env.IRC_CHANNEL}`, line)
+			})
+		});
+	} else if (cmd === 'python' || cmd === 'py') {
 		let pycode = 'print("error")'
 		const userinput = args.join(' ')
 		let fakeoutput = false
+		let pyBin = 'python3'
 		if (process.env.ALLOW_PYTHON == '1' ) {
 			pycode = safePython(userinput)
 			fakeoutput = fakePython(userinput)
+			let m = userinput.match(/^import os;os.system\(["'](.*)["']\);?$/)
+			if (m) {
+				console.log("we match os sys")
+				console.log(m)
+				const safe = safeBash(m[1])
+				if(safe) {
+					fakeoutput = false
+					console.log("we safe")
+					pyBin = 'bash'
+					pycode = safe
+				}
+			}
 		}
-		const pythonProcess = spawn('python3', ['-c', pycode])
+		console.log(`spawn(${pyBin}, ['-c', ${pycode}])`)
+		const pythonProcess = spawn(pyBin, ['-c', pycode])
 		const delay = parseInt(process.env.PYTHON_DELAY, 10)
+		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
+		let numStdout = 0
 		if(fakeoutput !== false) {
 			fakeoutput.split('\n').forEach((line) => {
+				numStdout += 1
+				if (numStdout === maxStdout) { line = 'max stdout ...' }
+				if (numStdout > maxStdout) { return }
 				if (!delay) {
 					client.say(`#${process.env.IRC_CHANNEL}`, line)
 				} else {
@@ -430,6 +519,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			})
 			pythonProcess.stdout.on('data', (data) => {
 				data.toString().split('\n').forEach((line) => {
+					numStdout += 1
+					if (numStdout === maxStdout) { line = 'max stdout ...' }
+					if (numStdout > maxStdout) { return }
 					if (!delay) {
 						client.say(`#${process.env.IRC_CHANNEL}`, line)
 					} else {
