@@ -51,7 +51,7 @@ const sendHelpToChiler = async () => {
 	return `chiler is one one of those servers ${links.join(', ')} send help to this poor soul in danger`
 }
 
-const client = new irc.Client('irc.ipv6.quakenet.org', 'chillerbot', {
+const client = new irc.Client(process.env.IRC_SERVER, 'chillerbot', {
 	channels: [`#${process.env.IRC_CHANNEL}`],
 })
 
