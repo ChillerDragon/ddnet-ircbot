@@ -88,6 +88,55 @@ const isPapaChiler = (from, isBridge, client) => {
 
 const messageQueue = []
 
+const maffsPython = (userinput) => {
+	let pycode = false
+	const maffs = /(\s*[\+\-\*\/]*\s*\d+\s*[\+\-\*\/]*)+/
+	const printMaffs = new RegExp(`^print\\(${maffs.source}\\)$`)
+	if (printMaffs.test(userinput)) {
+		pycode = userinput
+	}
+	const simpleMaffs = new RegExp(`^${maffs.source}$`)
+	if (simpleMaffs.test(userinput)) {
+		pycode = `print(${userinput})`
+	}
+	const maffsInArray = new RegExp(`(\\[(\s*${maffs.source}\s*,?\s*)*\\])`)
+	const maffsInArrayDelim = new RegExp(`^${maffsInArray.source}$`)
+	if (maffsInArrayDelim.test(userinput)) {
+		pycode = `print(${userinput})`
+	}
+	const maffsWithArray = new RegExp(`^(${maffsInArray.source}*\[\\+\\-\\*\\/\]*${maffsInArray.source}*)*$`)
+	if (maffsWithArray.test(userinput)) {
+		pycode = `print(${userinput})`
+	}
+	const loop = /^\[[a-zA-Z0-9]*\s+for\s+[a-zA-Z0-9]+\s+in\s+range\(\d\)\]$/
+	if (loop.test(userinput)) {
+		pycode = `print(${userinput})`
+	}
+	return pycode
+}
+
+const trolPython = (userinput) => {
+	if (/^os.system\(["']shutdown/.test(userinput)) {
+		return "print(\"Shutdown scheduled for Sat 2023-04-29 10:37:26 CEST, use 'shutdown -c' to cancel.\")"
+	}
+	if (/^os.system\(["']rm/.test(userinput)) {
+		return "print('rm: remove write-protected regular fipytlehon error')"
+	}
+	return false
+}
+
+const safePython = (userinput) => {
+	let pycode = maffsPython(userinput)
+	if(pycode) {
+		return pycode
+	}
+	pycode = trolPython(userinput)
+	if(pycode) {
+		return pycode
+	}
+	return '2+2'
+}
+
 client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
 	let isBridge = false
 	if (from === 'bridge') {
@@ -123,30 +172,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
 	} else if (cmd === 'python') {
 		let pycode = 'print(2 + 2)'
+		const userinput = args.join(' ')
 		if (process.env.ALLOW_PYTHON == '1' ) {
-			const userinput = args.join(' ')
-			const maffs = /(\s*[\+\-\*\/]*\s*\d+\s*[\+\-\*\/]*)+/
-			const printMaffs = new RegExp(`^print\\(${maffs.source}\\)$`)
-			if (printMaffs.test(userinput)) {
-				pycode = userinput
-			}
-			const simpleMaffs = new RegExp(`^${maffs.source}$`)
-			if (simpleMaffs.test(userinput)) {
-				pycode = `print(${userinput})`
-			}
-			const maffsInArray = new RegExp(`(\\[(\s*${maffs.source}\s*,?\s*)*\\])`)
-			const maffsInArrayDelim = new RegExp(`^${maffsInArray.source}$`)
-			if (maffsInArrayDelim.test(userinput)) {
-				pycode = `print(${userinput})`
-			}
-			const maffsWithArray = new RegExp(`^(${maffsInArray.source}*\[\\+\\-\\*\\/\]*${maffsInArray.source}*)*$`)
-			if (maffsWithArray.test(userinput)) {
-				pycode = `print(${userinput})`
-			}
-			const loop = /^\[[a-zA-Z0-9]*\s+for\s+[a-zA-Z0-9]+\s+in\s+range\(\d\)\]$/
-			if (loop.test(userinput)) {
-				pycode = `print(${userinput})`
-			}
+			pycode = safePython(userinput)
 		}
 		const pythonProcess = spawn('python3', ['-c', pycode])
 		const delay = parseInt(process.env.PYTHON_DELAY, 10)
