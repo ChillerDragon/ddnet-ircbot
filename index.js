@@ -88,6 +88,29 @@ const isPapaChiler = (from, isBridge, client) => {
 
 const messageQueue = []
 
+const strPython = (userinput) => {
+	const strpy = /\s*["'][a-zA-Z]+["']\s*/
+	const printMaffs = new RegExp(`^print\\(${strpy.source}\\)$`)
+	if (printMaffs.test(userinput)) {
+		return userinput
+	}
+	const simpleStr = new RegExp(`^${strpy.source}$`)
+	if (printMaffs.test(userinput)) {
+		return `print(${userinput})`
+	}
+	const fstrpy = /\s*f["'][a-zA-Z]+["']\s*/
+	const fprintMaffs = new RegExp(`^print\\(${fstrpy.source}\\)$`)
+	if (printMaffs.test(userinput)) {
+		return userinput
+	}
+	const fstrpyInter = /\s*f["'][a-zA-Z]+{[0-9]*}["']\s*/
+	const fprintInterDelim = new RegExp(`^print\\(${fstrpyInter.source}\\)$`)
+	if (printMaffs.test(userinput)) {
+		return userinput
+	}
+	return false
+}
+
 const maffsPython = (userinput) => {
 	let pycode = false
 	const maffs = /(\s*[\+\-\*\/]*\s*\d+\s*[\+\-\*\/]*)+/
@@ -115,13 +138,134 @@ const maffsPython = (userinput) => {
 	return pycode
 }
 
-const trolPython = (userinput) => {
-	if (/^os.system\(["']shutdown/.test(userinput)) {
-		return "print(\"Shutdown scheduled for Sat 2023-04-29 10:37:26 CEST, use 'shutdown -c' to cancel.\")"
+const fakeOsPython = (userinput) => {
+	// only checks os.system stuff
+	// let importedOs = false
+	let m = userinput.match(/^import\s+([a-zA-Z]+)/)
+	if (m) {
+		const mod = m[1]
+		if (["sys", "itertools"].includes(mod)) {
+			console.log("print nothing because we imported module")
+			return ''
+		} else if (mod === 'os') {
+			// importedOs = true // checked later
+		} else {
+			return `ModuleNotFoundError: No module named '${mod}'`
+		}
 	}
-	if (/^os.system\(["']rm/.test(userinput)) {
-		return "print('rm: remove write-protected regular fipytlehon error')"
+	if (!/os.system\(/.test(userinput)) {
+		console.log("not os cuz no os.system")
+		return false
 	}
+	m = userinput.match(/^\import os\s*;\s*(.*)/)
+	if (!m) {
+		return `NameError: name 'os' is not defined`
+	}
+	userinput = m[1]
+	m = userinput.match(/^os.system\(["']ls \s*([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if (m) {
+		const path = m[1]
+		if (path === '..') {
+			return `ddnet-ircbot`
+		} else if (path === '.') {
+			return "env.example  hex_to_pack.py  index.js  LICENSE  node_modules  package.json  package-lock.json  ping_pong.csv  README.md  tags  venv"
+		}
+		return `ls: cannot open file or directory '${path}': Permission denied`
+	}
+	m = userinput.match(/^os.system\(["']echo ["']*([a-zA-Z0-9\s]+)\s*>>?\s*([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if (m) {
+		const outfile = m[2]
+		if (outfile[0] === '/') {
+			return `-bash: ${outfile}: Permission denied`
+		}
+		return "" // fake successful echo write to file -> no output
+	}
+	m = userinput.match(/^os.system\(["']echo ["']*([a-zA-Z0-9\s]+)/)
+	if (m) {
+		return m[1]
+	}
+	m = userinput.match(/^os.system\(["']cat ["']*([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if (m) {
+		const file = m[1]
+
+		if (file === '/etc/passwd') {
+			const content = [
+				'root:x:0:0::/root:/bin/bash',
+				'bin:x:1:1::/:/usr/bin/nologin',
+				'daemon:x:2:2::/:/usr/bin/nologin',
+				'mail:x:8:12::/var/spool/mail:/usr/bin/nologin',
+				'ftp:x:14:11::/srv/ftp:/usr/bin/nologin',
+				'http:x:33:33::/srv/http:/usr/bin/nologin'
+			]
+			return content.join('\n')
+		} else if (file === '/etc/os-release') {
+			const content = [
+				'PRETTY_NAME="Raspbian GNU/Linux 11 (bullseye)"',
+				'NAME="Raspbian GNU/Linux"',
+				'VERSION_ID="11"',
+				'VERSION="11 (bullseye)"'
+			]
+			return content.join('\n')
+		} else if (file.startsWith('/usr/') ||
+			file.startsWith('/boot/') ||
+			file.startsWith('/dev/') ||
+			file.startsWith('/etc/') ||
+			file.startsWith('/home/') ||
+			file.startsWith('/lib/') ||
+			file.startsWith('/lib64/') ||
+			file.startsWith('/lost+found/') ||
+			file.startsWith('/mnt/') ||
+			file.startsWith('/opt/') ||
+			file.startsWith('/proc/') ||
+			file.startsWith('/root/') ||
+			file.startsWith('/run/') ||
+			file.startsWith('/sbin/') ||
+			file.startsWith('/srv/') ||
+			file.startsWith('/sys/') ||
+			file.startsWith('/var/') ||
+			file.startsWith('/usr/')) {
+			return `cat: ${file}: Permission denied`
+		} else {
+			return `cat: ${file}: No such file or directory`
+		}
+	}
+	// match any kind of command and say arg is invalid xd
+	m = userinput.match(/^os.system\(["']([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if (m) {
+		const cmd = m[1]
+		const arg = m[2]
+		if (cmd === 'uname' && arg === '-a') {
+			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
+		} else if (cmd === 'uname' && arg === '-r') {
+			return '5.10.103-v7l+'
+		} else if (cmd === 'rm' && (arg[0] === '/' || arg[0] === '-')) {
+			return "rm: remove write-protected regular fipytlehon error"
+		} else if (cmd === 'ls' && arg === '.') {
+			return "env.example  hex_to_pack.py  index.js  LICENSE  node_modules  package.json  package-lock.json  ping_pong.csv  README.md  tags  venv"
+		}
+		return `${cmd}: invalid option -- '${arg}'`
+	}
+	m = userinput.match(/^os.system\(["']([a-zA-Z0-9_\-]+)["']/)
+	console.log(m)
+	console.log(userinput)
+	// command no args
+	if (m) {
+		const cmd = m[1]
+		if (cmd === 'uname') {
+			return "Linux"
+		} else if (cmd === 'shutdown') {
+			return `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`
+		} else if (cmd === 'sleep') {
+			return 'sleep: missing operand'
+		} else if (cmd === 'touch') {
+			return "Try 'touch --help' for more information."
+		} else if (cmd === 'ls') {
+			return "env.example  hex_to_pack.py  index.js  LICENSE  node_modules  package.json  package-lock.json  ping_pong.csv  README.md  tags  venv"
+		} else {
+			return `bash: ${cmd}: command not found`
+		}
+	}
+	console.log("fake os EOL")
 	return false
 }
 
@@ -130,11 +274,18 @@ const safePython = (userinput) => {
 	if(pycode) {
 		return pycode
 	}
-	pycode = trolPython(userinput)
+	pycode = strPython(userinput)
 	if(pycode) {
 		return pycode
 	}
-	return '2+2'
+	let m = userinput.match(/^([a-zA-Z_]+)$/)
+	if (!m) {
+		m = userinput.match(/^([a-zA-Z_]+)./)
+	}
+	if (m) {
+		return `print("NameError: name '${m[1]}' is not defined")`
+	}
+	return 'print("failed to sanitize input")'
 }
 
 client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
@@ -171,18 +322,17 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		const helpTxt = await sendHelpToChiler()
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
 	} else if (cmd === 'python') {
-		let pycode = 'print(2 + 2)'
+		let pycode = 'print("error")'
 		const userinput = args.join(' ')
+		let fakeoutput = false
 		if (process.env.ALLOW_PYTHON == '1' ) {
 			pycode = safePython(userinput)
+			fakeoutput = fakeOsPython(userinput)
 		}
 		const pythonProcess = spawn('python3', ['-c', pycode])
 		const delay = parseInt(process.env.PYTHON_DELAY, 10)
-		pythonProcess.stderr.on('data', (data) => {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'python error')
-		})
-		pythonProcess.stdout.on('data', (data) => {
-			data.toString().split('\n').forEach((line) => {
+		if(fakeoutput !== false) {
+			fakeoutput.split('\n').forEach((line) => {
 				if (!delay) {
 					client.say(`#${process.env.IRC_CHANNEL}`, line)
 				} else {
@@ -191,7 +341,22 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 					}, delay)
 				}
 			})
-		});
+		} else {
+			pythonProcess.stderr.on('data', (data) => {
+				client.say(`#${process.env.IRC_CHANNEL}`, 'python error')
+			})
+			pythonProcess.stdout.on('data', (data) => {
+				data.toString().split('\n').forEach((line) => {
+					if (!delay) {
+						client.say(`#${process.env.IRC_CHANNEL}`, line)
+					} else {
+						setTimeout(() => {
+							messageQueue.push(line)
+						}, delay)
+					}
+				})
+			});
+		}
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data) => {
