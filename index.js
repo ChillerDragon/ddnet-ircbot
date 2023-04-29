@@ -87,6 +87,26 @@ const isPapaChiler = (from, isBridge, client) => {
 }
 
 const messageQueue = []
+/*
+ * fakefiles
+ * key: rel or abs path
+ * val: [filenames]
+ */
+const fakeFiles = {
+	'.': [
+		"env.example",
+		"hex_to_pack.py",
+		"index.js",
+		"LICENSE",
+		"node_modules",
+		"package.json",
+		"package-lock.json",
+		"ping_pong.csv",
+		"README.md",
+		"tags",
+		"Dockerfile"
+	]
+}
 
 const strPython = (userinput) => {
 	const strpy = /\s*["'][a-zA-Z]+["']\s*/
@@ -142,6 +162,12 @@ const safeBash = (userinput) => {
 	if (userinput === 'uname' || userinput === 'uname;' || userinput === 'uname -r') {
 		return userinput
 	}
+	if (userinput === 'id' || userinput === 'id;') {
+		return userinput
+	}
+	if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
+		return userinput
+	}
 	if (userinput === 'uptime' || userinput === 'uptime;') {
 		return userinput
 	}
@@ -151,9 +177,9 @@ const safeBash = (userinput) => {
 	if (userinput === 'neofetch' || userinput === 'neofetch;') {
 		return userinput
 	}
-	if (["ls", "ls .", "ls;", "ls .;"].includes(userinput)) {
-		return userinput
-	}
+	// if (["ls", "ls .", "ls;", "ls .;"].includes(userinput)) {
+	// 	return userinput
+	// }
 	const safeToReadFiles = [
 		'/proc/stat',
 		'/etc/os-release',
@@ -192,6 +218,80 @@ const safeBash = (userinput) => {
 const fakeBash = (userinput) => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
 		return 'Killed'
+	}
+	if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
+		fakeFiles['.'] = []
+		return ''
+	} else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
+		// let files = [
+		// 	"env.example",
+		// 	"hex_to_pack.py",
+		// 	"index.js",
+		// 	"LICENSE",
+		// 	"node_modules",
+		// 	"package.json",
+		// 	"package-lock.json",
+		// 	"ping_pong.csv",
+		// 	"README.md",
+		// 	"tags",
+		// 	"Dockerfile"
+		// ]
+		// if(fakeFiles['.']) {
+		// 	files = files.concat(fakeFiles['.']).sort()
+		// }
+		return fakeFiles['.'].sort().join('\n')
+	}
+	let m = userinput.match(/touch\s+([a-zA-Z0-9/\.]+)/)
+	if(m) {
+		const split= m[1].split('/')
+		const filename = split.pop()
+		let path = split.join('/')
+		if (path === '') {
+			path = '.'
+		}
+		if(!fakeFiles[path]) {
+			fakeFiles[path] = []
+		}
+		fakeFiles[path].push(filename)
+		return ''
+	}
+	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if (m) {
+		const cmd = m[1]
+		const args = m[2].split(' ')
+		if (cmd === 'uname' && args[0] === '-a') {
+			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
+		} else if (cmd === 'uname' && args[0] === '-r') {
+			return '5.10.103-v7l+'
+		} else if (cmd === 'rm') {
+			if (args.length === 0) {
+				return 'rm: missing operand'
+			}
+			if (args[0] === '-r' || args[0] === '-rf') {
+				args.pop()
+			}
+			if (args[0][0] == '-') {
+				return `${cmd}: invalid option -- '${args[0]}'`
+			}
+			let filename = args[0]
+			if (filename.startsWith('./')) {
+				filename = filename.substring(2)
+			}
+			if (fakeFiles['.'].includes(filename)) {
+				const i = fakeFiles['.'].indexOf(filename)
+				fakeFiles['.'].splice(i, 1)
+				return ''
+			}
+			if (args[0][0] === '/') {
+				return `rm: cannot remove '${args[0]}': Permission denied`
+			}
+			return `rm: cannot remove '${args[0]}': No such file or directory`
+			// return "rm: remove write-protected regular fipytlehKilledon error"
+		} else if (cmd === 'ls') {
+			// we handle ls else where
+		} else {
+			return `${cmd}: invalid option -- '${args[0]}'`
+		}
 	}
 	return false
 }
@@ -287,32 +387,14 @@ const fakeOsPython = (userinput) => {
 			return `cat: ${file}: No such file or directory`
 		}
 	}
-	// match any kind of command and say arg is invalid xd
-	m = userinput.match(/^os.system\(["']([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-]+)/)
-	if (m) {
-		const cmd = m[1]
-		const arg = m[2]
-		if (cmd === 'uname' && arg === '-a') {
-			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
-		} else if (cmd === 'uname' && arg === '-r') {
-			return '5.10.103-v7l+'
-		} else if (cmd === 'rm' && (arg[0] === '/' || arg[0] === '-')) {
-			return "rm: remove write-protected regular fipytlehon error"
-		} else if (cmd === 'ls' && arg === '.') {
-			return "env.example  hex_to_pack.py  index.js  LICENSE  node_modules  package.json  package-lock.json  ping_pong.csv  README.md  tags  venv"
-		}
-		return `${cmd}: invalid option -- '${arg}'`
-	}
 	m = userinput.match(/^os.system\(["'](.+)["']/)
 	if (m) {
 		const fakebash = fakeBash(m[1])
-		if(fakebash) {
+		if(fakebash !== false) {
 			return fakebash
 		}
 	}
 	m = userinput.match(/^os.system\(["']([a-zA-Z0-9_\-]+)["']/)
-	console.log(m)
-	console.log(userinput)
 	// command no args
 	if (m) {
 		const cmd = m[1]
@@ -325,7 +407,7 @@ const fakeOsPython = (userinput) => {
 		} else if (cmd === 'touch') {
 			return "Try 'touch --help' for more information."
 		} else if (cmd === 'ls') {
-			return "env.example  hex_to_pack.py  index.js  LICENSE  node_modules  package.json  package-lock.json  ping_pong.csv  README.md  tags  venv"
+			// we handle ls else where
 		} else {
 			return `bash: ${cmd}: command not found`
 		}
@@ -463,7 +545,20 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		const userinput = args.join(' ')
 		const safe = safeBash(userinput)
 		if(!safe) {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'unsafe bash')
+			fake = fakeBash(userinput)
+			if (fake !== false) {
+				const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
+				let numStdout = 0
+				fake.toString().split('\n').forEach((line) => {
+					numStdout += 1
+					if (numStdout === maxStdout) { line = 'max stdout ...' }
+					if (numStdout > maxStdout) { return }	
+
+					messageQueue.push(line)
+				})
+			} else {
+				client.say(`#${process.env.IRC_CHANNEL}`, 'unsafe bash')
+			}
 		}
 		const shProc = spawn('bash', ['-c', safe])
 		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
