@@ -138,6 +138,13 @@ const maffsPython = (userinput) => {
 	return pycode
 }
 
+const fakeBash = (userinput) => {
+	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
+		return 'Killed'
+	}
+	return false
+}
+
 const fakeOsPython = (userinput) => {
 	// only checks os.system stuff
 	// let importedOs = false
@@ -245,6 +252,13 @@ const fakeOsPython = (userinput) => {
 		}
 		return `${cmd}: invalid option -- '${arg}'`
 	}
+	m = userinput.match(/^os.system\(["'](.+)["']/)
+	if (m) {
+		const fakebash = fakeBash(m[1])
+		if(fakebash) {
+			return fakebash
+		}
+	}
 	m = userinput.match(/^os.system\(["']([a-zA-Z0-9_\-]+)["']/)
 	console.log(m)
 	console.log(userinput)
@@ -266,6 +280,53 @@ const fakeOsPython = (userinput) => {
 		}
 	}
 	console.log("fake os EOL")
+	return false
+}
+
+const fakePythonMethodCall = (userinput) => {
+	const m = userinput.match(/^([a-zA-Z_]+[a-zA-Z0-9_\-]*)\(([a-zA-Z0-9'",]+)?\)/) // exit
+	if (!m) {
+		console.log("method call no match")
+		return false
+	}
+	const cmd = m[1]
+	let args = m[2]
+	if (args) {
+		args = args.split(',')
+	}
+	if (cmd === 'exit') {
+		return ''
+	}
+	return false
+}
+
+const fakePythonMethodDefinition = (userinput) => {
+	const m = userinput.match(/^def\s+([a-zA-Z_]+[a-zA-Z0-9_]*)\(([a-zA-Z0-9,]+)?\):$/)
+	if (!m) {
+		return false
+	}
+	console.log(m)
+	const name = m[0]
+	let args = m[1]
+	if (args) {
+		args = args.split(',')
+	}
+	return 'IndentationError: expected an indented block after function definition on line 1'
+}
+
+const fakePython = (userinput) => {
+	let fakeoutput = fakeOsPython(userinput)
+	if (fakeoutput !== false) {
+		return fakeoutput
+	}
+	fakeoutput = fakePythonMethodCall(userinput)
+	if (fakeoutput !== false) {
+		return fakeoutput
+	}
+	fakeoutput = fakePythonMethodDefinition(userinput)
+	if (fakeoutput !== false) {
+		return fakeoutput
+	}
 	return false
 }
 
@@ -321,13 +382,35 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		}
 		const helpTxt = await sendHelpToChiler()
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
+	} else if (cmd === 'js' || cmd === 'node' || cmd === 'javascript' || cmd === 'deno') {
+		const unsafeUnsanitizedUserinput = args.join(' ')
+		if (process.env.ALLOW_JS != '1' ) {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'js is turned off because i got hacked')
+			return
+		}
+		const denoProc = spawn('deno', ['eval', unsafeUnsanitizedUserinput])
+		const delay = parseInt(process.env.JS_DELAY, 10)
+		denoProc.stderr.on('data', (data) => {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'js error')
+		})
+		denoProc.stdout.on('data', (data) => {
+			data.toString().split('\n').forEach((line) => {
+				if (!delay) {
+					client.say(`#${process.env.IRC_CHANNEL}`, line)
+				} else {
+					setTimeout(() => {
+						messageQueue.push(line)
+					}, delay)
+				}
+			})
+		});
 	} else if (cmd === 'python') {
 		let pycode = 'print("error")'
 		const userinput = args.join(' ')
 		let fakeoutput = false
 		if (process.env.ALLOW_PYTHON == '1' ) {
 			pycode = safePython(userinput)
-			fakeoutput = fakeOsPython(userinput)
+			fakeoutput = fakePython(userinput)
 		}
 		const pythonProcess = spawn('python3', ['-c', pycode])
 		const delay = parseInt(process.env.PYTHON_DELAY, 10)
