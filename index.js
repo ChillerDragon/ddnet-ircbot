@@ -626,6 +626,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			} else {
 				client.say(`#${process.env.IRC_CHANNEL}`, 'unsafe bash')
 			}
+			return
 		}
 		const shProc = spawn('bash', ['-c', safe])
 		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
