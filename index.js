@@ -167,6 +167,9 @@ const safeBash = (userinput) => {
 	if (userinput === 'id' || userinput === 'id;') {
 		return userinput
 	}
+	if (["whoami", "whoami;".includes(userinput)]) {
+		return userinput
+	}
 	if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
 		return userinput
 	}
