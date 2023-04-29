@@ -92,8 +92,9 @@ const messageQueue = []
  * key: rel or abs path
  * val: [filenames]
  */
-const fakeFiles = {
-	'.': [
+const fakeFiles = {}
+let FAKE_PWD = '/home/pi'
+fakeFiles[FAKE_PWD] = [
 		"env.example",
 		"hex_to_pack.py",
 		"index.js",
@@ -105,9 +106,7 @@ const fakeFiles = {
 		"README.md",
 		"tags",
 		"Dockerfile"
-	]
-}
-let FAKE_PWD = '/home/pi'
+]
 let FAKE_SHELL = 'bash'
 
 const strPython = (userinput) => {
@@ -167,7 +166,7 @@ const safeBash = (userinput) => {
 	if (userinput === 'id' || userinput === 'id;') {
 		return userinput
 	}
-	if (["whoami", "whoami;".includes(userinput)]) {
+	if (["whoami", "whoami;"].includes(userinput)) {
 		return userinput
 	}
 	if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
@@ -233,7 +232,7 @@ const fakeBash = (userinput) => {
 		FAKE_SHELL = '/bin/zsh'
 		return ''
 	} else if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
-		fakeFiles['.'] = []
+		fakeFiles[FAKE_PWD] = []
 		return ''
 	} else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
 		// let files = [
@@ -252,7 +251,15 @@ const fakeBash = (userinput) => {
 		// if(fakeFiles['.']) {
 		// 	files = files.concat(fakeFiles['.']).sort()
 		// }
-		return fakeFiles['.'].sort().join('\n')
+		console.log(fakeFiles)
+		const files = fakeFiles[FAKE_PWD]
+		console.log(FAKE_PWD)
+		console.log(files)
+		if (files) {
+			return files.sort().join('\n')
+		} else {
+			return `ls: Permission denied`
+		}
 
 	} else if (["pwd", "pwd;"].includes(userinput)) {
 		return FAKE_PWD;
@@ -294,7 +301,7 @@ const fakeBash = (userinput) => {
 		const filename = split.pop()
 		let path = split.join('/')
 		if (path === '') {
-			path = '.'
+			path = FAKE_PWD
 		}
 		if(!fakeFiles[path]) {
 			fakeFiles[path] = []
@@ -303,9 +310,12 @@ const fakeBash = (userinput) => {
 		return ''
 	}
 	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-]+)/)
+	if(!m) {
+		m = userinput.match(/^([a-zA-Z0-9_\-]+)/)
+	}
 	if (m) {
 		const cmd = m[1]
-		const args = m[2].split(' ')
+		const args = m[2] ? m[2].split(' ') : []
 		if (cmd === 'uname' && args[0] === '-a') {
 			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
 		} else if (cmd === 'uname' && args[0] === '-r') {
@@ -330,6 +340,12 @@ const fakeBash = (userinput) => {
 				return ''
 			}
 			return `-bash: cd: ${args[0]}: Permission denied`
+		} else if (cmd === 'echo') {
+			if (args[0] === '-n' || args[0] === '-e') {
+				args.pop()
+			}
+			const msg = args.join(' ')
+			return msg
 		} else if (cmd === 'rm') {
 			if (args.length === 0) {
 				return 'rm: missing operand'
@@ -344,9 +360,12 @@ const fakeBash = (userinput) => {
 			if (filename.startsWith('./')) {
 				filename = filename.substring(2)
 			}
-			if (fakeFiles['.'].includes(filename)) {
-				const i = fakeFiles['.'].indexOf(filename)
-				fakeFiles['.'].splice(i, 1)
+			if (!fakeFiles[FAKE_PWD]) {
+				fakeFiles[FAKE_PWD] = []
+			}
+			if (fakeFiles[FAKE_PWD].includes(filename)) {
+				const i = fakeFiles[FAKE_PWD].indexOf(filename)
+				fakeFiles[FAKE_PWD].splice(i, 1)
 				return ''
 			}
 			if (args[0][0] === '/') {
@@ -611,8 +630,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		}
 		const userinput = args.join(' ')
 		const safe = safeBash(userinput)
+		console.log("res of safeBase(" +userinput+") = > " + safe)
 		if(!safe) {
-			fake = fakeBash(userinput)
+			const fake = fakeBash(userinput)
 			if (fake !== false) {
 				const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
 				let numStdout = 0
@@ -661,6 +681,18 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 					console.log("we safe")
 					pyBin = 'bash'
 					pycode = safe
+				}
+				const fake = fakeBash(userinput)
+				if (fake !== false) {
+					const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
+					let numStdout = 0
+					fake.toString().split('\n').forEach((line) => {
+						numStdout += 1
+						if (numStdout === maxStdout) { line = 'max stdout ...' }
+						if (numStdout > maxStdout) { return }	
+
+						messageQueue.push(line)
+					})
 				}
 			}
 		}
