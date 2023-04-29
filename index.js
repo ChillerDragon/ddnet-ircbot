@@ -123,18 +123,45 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
 	} else if (cmd === 'python') {
 		let pycode = 'print(2 + 2)'
-		const userinput = args.join(' ')
-		if (/^print\((\s?\d+\s?[\+\-\*\/]*)+\)$/.test(userinput)) {
-			pycode = userinput
-		} else if (/^(\s?\d+\s?[\+\-\*\/]*)+$/.test(userinput)) {
-			pycode = `print(${userinput})`
+		if (process.env.ALLOW_PYTHON == '1' ) {
+			const userinput = args.join(' ')
+			const maffs = /(\s*[\+\-\*\/]*\s*\d+\s*[\+\-\*\/]*)+/
+			const printMaffs = new RegExp(`^print\\(${maffs.source}\\)$`)
+			if (printMaffs.test(userinput)) {
+				pycode = userinput
+			}
+			const simpleMaffs = new RegExp(`^${maffs.source}$`)
+			if (simpleMaffs.test(userinput)) {
+				pycode = `print(${userinput})`
+			}
+			const maffsInArray = new RegExp(`(\\[(\s*${maffs.source}\s*,?\s*)*\\])`)
+			const maffsInArrayDelim = new RegExp(`^${maffsInArray.source}$`)
+			if (maffsInArrayDelim.test(userinput)) {
+				pycode = `print(${userinput})`
+			}
+			const maffsWithArray = new RegExp(`^(${maffsInArray.source}*\[\\+\\-\\*\\/\]*${maffsInArray.source}*)*$`)
+			if (maffsWithArray.test(userinput)) {
+				pycode = `print(${userinput})`
+			}
+			const loop = /^\[[a-zA-Z0-9]*\s+for\s+[a-zA-Z0-9]+\s+in\s+range\(\d\)\]$/
+			if (loop.test(userinput)) {
+				pycode = `print(${userinput})`
+			}
 		}
 		const pythonProcess = spawn('python3', ['-c', pycode])
+		const delay = parseInt(process.env.PYTHON_DELAY, 10)
+		pythonProcess.stderr.on('data', (data) => {
+			client.say(`#${process.env.IRC_CHANNEL}`, 'python error')
+		})
 		pythonProcess.stdout.on('data', (data) => {
 			data.toString().split('\n').forEach((line) => {
-				setTimeout(() => {
-					messageQueue.push(line)
-				}, 5000)
+				if (!delay) {
+					client.say(`#${process.env.IRC_CHANNEL}`, line)
+				} else {
+					setTimeout(() => {
+						messageQueue.push(line)
+					}, delay)
+				}
 			})
 		});
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
