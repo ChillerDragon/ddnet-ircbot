@@ -370,11 +370,15 @@ const safeBash = (userinput) => {
 	if (userinput === 'neofetch' || userinput === 'neofetch;') {
 		return userinput
 	}
+	if (["ls /proc/self", "ls /proc/self;"].includes(userinput)) {
+		return userinput
+	}
 	// if (["ls", "ls .", "ls;", "ls .;"].includes(userinput)) {
 	// 	return userinput
 	// }
 	const safeToReadFiles = [
 		'/proc/stat',
+		'/proc/self/maps',
 		'/etc/os-release',
 		'LICENSE',
 		'ping_pong.csv',
