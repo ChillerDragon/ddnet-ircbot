@@ -914,6 +914,9 @@ const fakeBash = (userinput) => {
 			// console.log(`fallback because abspath=${abspath} dir=${isDir(abspath)}`)
 			return `-bash: cd: ${args[0]}: Permission denied`
 		} else if (cmd === 'kill') {
+			if (args.length === 0) {
+				return 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]'
+			}
 			if (args[0] === '-9') {
 				args.shift()
 			}
