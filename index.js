@@ -18,6 +18,7 @@ console.log('***')
 const QUIZ = {}
 let currentQuiz = null
 let currentQuizSolvers = []
+let quizzesPlayed = 0
 
 const loadQuiz = () => {
 	const quizCsv = fs.existsSync('quiz_secret.csv') ? 'quiz_secret.csv' : 'quiz.csv'
@@ -44,8 +45,6 @@ const startQuiz = () => {
 loadQuiz()
 
 console.log(QUIZ)
-process.exit(1)
-
 
 const getServerIpsByPlayerName = async (searchName) => {
 	const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
@@ -100,6 +99,7 @@ const say = (msg) => {
 }
 
 const endQuiz = () => {
+	quizzesPlayed += 1
 	const answer = QUIZ[currentQuiz]
 	currentQuiz = null
 	if (currentQuizSolvers.length === 0){
@@ -1084,6 +1084,10 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			say(`quizzle running: ${currentQuiz}`)
 			return
 		}
+		if (quizzesPlayed > 2) {
+			say("woah there you people already played enough quizzle")
+			return
+		}
 		currentQuiz = startQuiz()
 		currentQuizSolvers = []
 		say("Started quizzle answer with !a (your answer)")
@@ -1099,7 +1103,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		console.log(currentQuiz)
 		console.log(answer)
 
-		const answerPattern = new RegExp(answer)
+		const answerPattern = new RegExp(answer, 'i')
 		if(answerPattern.test(attempt)) {
 			// say(`wowowo pro ${from} solved the quiz!`)
 			currentQuizSolvers.push(from)
