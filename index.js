@@ -155,6 +155,20 @@ fakeVars['PATH'] = '/home/pi/.cargo/bin:/home/pi/.nvm/versions/node/v18.16.0/bin
  * val: [filenames]
  */
 const fakeFiles = {}
+const getDiskUsage = () => {
+	return JSON.stringify(fakeFiles).length
+}
+const unixDelFile = (path) => {
+	const [abspath, folder, filename] = pathInfo(path)
+	if(isFile(abspath) && fakeFiles[folder]) {
+		if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
+			const i = fakeFiles[folder].map((file) => file.name).indexOf(filename)
+			fakeFiles[folder].splice(i, 1)
+			return true
+		}
+	}
+	return false
+}
 const getPathType = (fullpath) => {
 	const split = fullpath.split('/')
 	const filename = split.pop()
@@ -166,7 +180,7 @@ const getPathType = (fullpath) => {
 	fakeFiles[path].forEach((file) => {
 		if(file.name === filename) {
 			type = file.type
-			return
+			return type
 		}
 	})
 	return type
@@ -230,12 +244,16 @@ const isFile = (fullpath) => {
 	return getPathType(fullpath) === 'f'
 }
 KNOWN_COMMANDS = [
-	"cat", "/usr/bin/cat",
-	"head", "/usr/bin/head",
-	"tail", "/usr/bin/tail",
-	"grep", "/usr/bin/grep",
-	"ls", "/usr/bin/ls",
-	"ldd", "/usr/bin/ldd"
+	"cat", "/usr/bin/cat", "/bin/cat",
+	"head", "/usr/bin/head", "/bin/head",
+	"tail", "/usr/bin/tail", "/bin/tail",
+	"grep", "/usr/bin/grep", "/bin/grep",
+	"ls", "/usr/bin/ls", "/bin/ls",
+	"ldd", "/usr/bin/ldd", "/bin/ldd",
+	"rm", "/usr/bin/rm", "/bin/rm",
+	"mkdir", "/usr/bin/mkdir", "/bin/mkdir",
+	"touch", "/usr/bin/touch", "/bin/touch",
+	"df", "/usr/bin/df", "/bin/df",
 ]
 LDD = {}
 LDD['/bin/bash'] = [
@@ -275,16 +293,54 @@ fakeFiles['/'] = [
 	{name: 'usr', type: 'd'},
 	{name: 'var', type: 'd'}
 ]
+fakeFiles['/usr'] = [
+	{name: 'bin', type: 'd'},
+	{name: 'games', type: 'd'},
+	{name: 'include', type: 'd'},
+	{name: 'lib', type: 'd'},
+	{name: 'libexec', type: 'd'},
+	{name: 'local', type: 'd'},
+	{name: 'sbin', type: 'd'},
+	{name: 'share', type: 'd'},
+	{name: 'src', type: 'd'},
+]
+fakeFiles['/usr/bin'] = [
+	{name: 'sudo', type: 'f', content: 'ELF(tj44        (pt444  TTT.00pppDDQtdRtdtt/lib/ld-linux-armhf.so.3GNUMOWSlR@h0SGNU&<`:HV-'},
+	{name: 'apt', type: 'f', content: 'ELF(414         (p   ((444  TTT@ @ .....((pppDDQtdRtd.../lib/ld-linux-armhf.so.3GNUHK`-ӬGNU%    @ $h@DG PPV P1$?!'},
+	{name: 'rm', type: 'f'},
+	{name: 'touch', type: 'f'},
+	{name: 'mkdir', type: 'f'},
+	{name: 'df', type: 'f'},
+	{name: 'head', type: 'f', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
+	{name: 'tail', type: 'f', content: '_/TukM/bq& 7'},
+	{name: 'grep', type: 'f', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
+	{name: 'ls', type: 'f', content: '@@@55@@@Q3Q3ww%'},
+	{name: 'bash', type: 'f', content: '@m@@p#@pS@8'},
+	{name: 'ldd', type: 'f'},
+	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
+	{name: 'zsh', type: 'f'},
+	{name: 'sh', type: 'f'},
+]
+fakeFiles['/usr/lib'] = [
+	{name: 'ld-linux-armhf.so.3', type: 'f'},
+	{name: 'ld-linux.so.3', type: 'f'},
+	{name: 'libpigpiod_if2.so', type: 'f'},
+	{name: 'libpigpiod_if2.so.1', type: 'f'},
+	{name: 'libopusfile.a', type: 'f'},
+	{name: 'libwiringPi.so', type: 'f'},
+	{name: 'libwiringPi.so.2.50', type: 'f'},
+	{name: 'libsupp.a', type: 'f'},
+]
 fakeFiles['/bin'] = [
 	{name: 'head', type: 'f', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
 	{name: 'tail', type: 'f', content: '_/TukM/bq& 7'},
 	{name: 'grep', type: 'f', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
 	{name: 'ls', type: 'f', content: '@@@55@@@Q3Q3ww%'},
 	{name: 'bash', type: 'f', content: '@m@@p#@pS@8'},
+	{name: 'ldd', type: 'f'},
+	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
 	{name: 'zsh', type: 'f'},
 	{name: 'sh', type: 'f'},
-	{name: 'ldd', type: 'f'},
-	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'}
 ]
 fakeFiles[fakeVars['PWD']] = [
 	{name: "env.example", type: 'f'},
@@ -325,6 +381,25 @@ fakeFiles[`${fakeVars['PWD']}/node_modules/nan`] = [
 	{name: "LICENSE", type: 'f'},
 	{name: "package.json", type: 'f'}
 ]
+/*
+ * measured in file system represented as string? wot
+ * so on the host needs a similar amount of bytes to store it
+ * for sure a bit more if not twice as much
+ */
+const MAX_DISK_SPACE = getDiskUsage() + 500
+const getMaxDiskSpace = (partition) => {
+	if (partition === '/') {
+		return MAX_DISK_SPACE
+	}
+	return 0
+}
+const getDiskError = () => {
+	const usage = getDiskUsage()
+	if (usage >= MAX_DISK_SPACE) {
+		return 'No Space Left on Device'
+	}
+	return null
+}
 
 const strPython = (userinput) => {
 	const strpy = /\s*["'][a-zA-Z]+["']\s*/
@@ -537,28 +612,49 @@ const fakeBash = (userinput) => {
 	}
 	let m = userinput.match(/touch\s+([a-zA-Z0-9/\.]+)/)
 	if(m) {
-		const split= m[1].split('/')
-		const filename = split.pop()
-		let path = split.join('/')
-		if (path === '') {
-			path = fakeVars['PWD']
-		}
-		if(!fakeFiles[path]) {
-			fakeFiles[path] = []
-		}
-		fakeFiles[path].push({name: filename, type: 'f'})
-		return ''
-	}
-	m = userinput.match(/mkdir\s+([a-zA-Z0-9/\.]+)/)
-	if(m) {
-		const [abspath, folder, filename] = pathInfo(bashStr(m[1]))
+		const path = bashStr(m[1])
+		const [abspath, folder, filename] = pathInfo(path)
 		if(!fakeFiles[folder]) {
 			fakeFiles[folder] = []
 		}
 		if(!fakeFiles[abspath]) {
 			fakeFiles[abspath] = []
 		}
+		const realpath = `${folder}/${filename}`
+		if(getPathType(realpath) !== null) {
+			// touch just pokes the file
+			// if we intoduce dates we should update last modified
+			// here
+			return ''
+		}
+		fakeFiles[folder].push({name: filename, type: 'f'})
+		const diskError = getDiskError();
+		if (diskError) {
+			unixDelFile(realpath)
+			return `touch: cannot create file ‘${path}’: ${diskError}`;
+		};
+		return ''
+	}
+	m = userinput.match(/mkdir\s+([a-zA-Z0-9/\.]+)/)
+	if(m) {
+		const path = bashStr(m[1])
+		const [abspath, folder, filename] = pathInfo(path)
+		if(!fakeFiles[folder]) {
+			fakeFiles[folder] = []
+		}
+		if(!fakeFiles[abspath]) {
+			fakeFiles[abspath] = []
+		}
+		const realpath = `${folder}/${filename}`
+		if(getPathType(realpath) !== null) {
+			return `mkdir: cannot create directory ‘${path}’: File exists`
+		}
 		fakeFiles[folder].push({name: filename, type: 'd'})
+		const diskError = getDiskError();
+		if (diskError) {
+			unixDelFile(realpath)
+			return `touch: cannot create file ‘${path}’: ${diskError}`;
+		};
 		return ''
 	}
 	// prefer quoted
@@ -594,6 +690,13 @@ const fakeBash = (userinput) => {
 			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
 		} else if (cmd === 'uname' && args[0] === '-r') {
 			return '5.10.103-v7l+'
+		} else if (cmd === 'sudo' || cmd === '/usr/bin/sudo') {
+			return 'sudo: a password is required'
+		} else if (cmd === 'apt' || cmd === '/usr/bin/apt') {
+			return [
+				"E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)",
+				"E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?"
+			].join('\n')
 		} else if (cmd === 'cd') {
 			if (args[0] === '.') {
 				return ''
@@ -696,6 +799,24 @@ const fakeBash = (userinput) => {
 			} else {
 				return `ls: cannot access '${abspath}': Permission denied`
 			}
+		} else if (cmd === 'df') {
+			const used = getDiskUsage()
+			const usedPad = used.toString().padStart(8, ' ')
+			const avail = getMaxDiskSpace('/')
+			const availPad = avail.toString().padStart(9, ' ')
+			const percent = Math.ceil((100 * used) / avail).toString()
+			const perPad = percent.padStart(3, ' ')
+			const out = [
+				`Filesystem     1K-blocks     Used Available Use% Mounted on`,
+				`/dev/root          26679 ${usedPad} ${availPad} ${perPad}% /`,
+				`devtmpfs            9288        0     79288   0% /dev`,
+				`tmpfs                152        0     44152   0% /dev/shm`,
+				`tmpfs               5664     1152     16512   1% /run`,
+				`tmpfs               5120        4      5116   1% /run/lock`,
+				`/dev/mmcblk0p6    258094    49323    208772  20% /boot`,
+				`tmpfs             808828       24    808804   1% /run/user/1001`
+			]
+			return out.join('\n')
 		} else if (cmd === 'rm') {
 			if (args.length === 0) {
 				return 'rm: missing operand'
@@ -710,12 +831,8 @@ const fakeBash = (userinput) => {
 			}
 			let path = bashStr(args[0])
 			const [abspath, folder, filename] = pathInfo(path)
-			if(isFile(abspath) && fakeFiles[folder]) {
-				if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
-					const i = fakeFiles[folder].map((file) => file.name).indexOf(filename)
-					fakeFiles[folder].splice(i, 1)
-					return ''
-				}
+			if(unixDelFile(path)) {
+				return ''
 			} else if(isDir(abspath)) {
 				if(argRecurse) {
 					fakeFiles[abspath] = []
