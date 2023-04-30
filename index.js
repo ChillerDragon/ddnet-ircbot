@@ -1604,6 +1604,10 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			}
 			return
 		}
+		if (process.env.ALLOW_UNSAFE_BASH != '1' ) {
+			say('unsafe bash broken because i got hacked')
+			return
+		}
 		const shProc = spawn('bash', ['-c', safe])
 		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
 		let numStdout = 0
@@ -1651,6 +1655,9 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 					})
 				}
 			}
+		} else {
+			say("python off")
+			return
 		}
 		console.log(`spawn(${pyBin}, ['-c', ${pycode}])`)
 		const pythonProcess = spawn(pyBin, ['-c', pycode])
