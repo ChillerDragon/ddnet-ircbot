@@ -61,7 +61,7 @@ const say = (msg) => {
 	}
 	// since we have full echo/say control
 	// one could do `echo /irccommand` or something like that
-	if(!/^\s*[a-zA-Z0-9`]/.test(msg)) {
+	if(!/^\s*[a-zA-Z0-9`\-@]/.test(msg)) {
 		msg = `_${msg}`
 	}
 	client.say(`#${process.env.IRC_CHANNEL}`, msg);
@@ -108,18 +108,147 @@ fakeVars['SHELL'] = '/bin/bash'
  * val: [filenames]
  */
 const fakeFiles = {}
+const getPathType = (fullpath) => {
+	const split = fullpath.split('/')
+	const filename = split.pop()
+	let path = split.join('/')
+	let type = null
+	if (!fakeFiles[path]) {
+		return null
+	}
+	fakeFiles[path].forEach((file) => {
+		if(file.name === filename) {
+			type = file.type
+			return
+		}
+	})
+	return type
+}
+const pathInfo = (fullpath) => {
+	if (fullpath === '..') {
+		const split =  fakeVars['PWD'].split('/')
+		split.pop()
+		const abspath = split.join('/')
+		split.pop()
+		const basepath = split.join('/') === '' ? '/' : split.join('/')
+		return [abspath, basepath, null]
+	}
+	if (fullpath === '/') {
+		return ['/', '/', null]
+	}
+	if (fullpath.startsWith('./')) {
+		fullpath = fullpath.substring(2)
+	}
+	if (fullpath[0] !== '/') {
+		fullpath = fakeVars['PWD'] + '/' + fullpath
+	}
+	const split = fullpath.split('/')
+	let filename = null
+	if (split.length > 0) {
+		filename = split.pop()
+	}
+	basepath = split.join('/')
+	let abspath = basepath
+	if(filename) {
+		abspath = `${basepath}/${filename}`
+	}
+	return [abspath, basepath, filename]
+}
+
+let OKS = 0
+fakeVars['PWD'] = '/home/pi/test'
+console.log(pathInfo("..").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("..").join(','))
+fakeVars['PWD'] = '/home/pi'
+console.log(pathInfo("..").join(',') === '/home,/,' ? OKS++ : pathInfo("..").join(','))
+console.log(pathInfo("foo").join(',') === '/home/pi/foo,/home/pi,foo' ? OKS++ : pathInfo("foo").join(','))
+console.log(pathInfo("foo/bar").join(',') === '/home/pi/foo/bar,/home/pi/foo,bar' ? OKS++ : pathInfo("foo/bar").join(','))
+console.log(pathInfo("foo/bar/baz.txt").join(',') === '/home/pi/foo/bar/baz.txt,/home/pi/foo/bar,baz.txt' ? OKS++ : pathInfo("foo/bar/baz.txt").join(','))
+console.log(pathInfo("/").join(',') === '/,/,' ? OKS++ : pathInfo("/").join(','))
+console.log(pathInfo("/tmp").join(',') === '/tmp,,tmp' ? OKS++ : pathInfo("/tmp").join(','))
+console.log(pathInfo("/tmp/test.txt").join(',') === '/tmp/test.txt,/tmp,test.txt' ? OKS++ : pathInfo("/tmp/test.txt").join(','))
+console.log(pathInfo("/tmp/ntested/test.txt").join(',') === '/tmp/ntested/test.txt,/tmp/ntested,test.txt' ? OKS++ : pathInfo("/tmp/ntested/test.txt").join(','))
+console.log(pathInfo("/tmp/ntested/").join(',') === '/tmp/ntested,/tmp/ntested,' ? OKS++ : pathInfo("/tmp/ntested/").join(','))
+
+if(OKS !== 10) {
+	process.exit(1)
+}
+
+const isDir = (fullpath) => {
+	if (fullpath === '/') {
+		return true
+	}
+	return getPathType(fullpath) === 'd'
+}
+const isFile = (fullpath) => {
+	return getPathType(fullpath) === 'f'
+}
+fakeFiles['/home'] = [
+	{name: 'pi', type: 'd'}
+]
+fakeFiles['/tmp'] = [
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-ModemManager.service-EuLjZi', type: 'd'},
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-logind.service-3YBxBi', type: 'd'},
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-timesyncd.service-NzZJYh', type: 'd'}
+]
+fakeFiles['/'] = [
+	{name: 'bin', type: 'd'},
+	{name: 'boot', type: 'd'},
+	{name: 'dev', type: 'd'},
+	{name: 'etc', type: 'd'},
+	{name: 'home', type: 'd'},
+	{name: 'lib', type: 'd'},
+	{name: 'lib64', type: 'd'},
+	{name: 'lost+found', type: 'd'},
+	{name: 'mnt', type: 'd'},
+	{name: 'opt', type: 'd'},
+	{name: 'proc', type: 'd'},
+	{name: 'root', type: 'd'},
+	{name: 'run', type: 'd'},
+	{name: 'sbin', type: 'd'},
+	{name: 'srv', type: 'd'},
+	{name: 'sys', type: 'd'},
+	{name: 'tmp', type: 'd'},
+	{name: 'usr', type: 'd'},
+	{name: 'var', type: 'd'}
+]
 fakeFiles[fakeVars['PWD']] = [
-		"env.example",
-		"hex_to_pack.py",
-		"index.js",
-		"LICENSE",
-		"node_modules",
-		"package.json",
-		"package-lock.json",
-		"ping_pong.csv",
-		"README.md",
-		"tags",
-		"Dockerfile"
+	{name: "env.example", type: 'f'},
+	{name: "hex_to_pack.py", type: 'f'},
+	{name: "index.js", type: 'f'},
+	{name: "LICENSE", type: 'f'},
+	{name: "node_modules", type: 'd'},
+	{name: "package.json", type: 'f'},
+	{name: "package-lock.json", type: 'f'},
+	{name: "ping_pong.csv", type: 'f'},
+	{name: "README.md", type: 'f'},
+	{name: "tags", type: 'f'},
+	{name: "Dockerfile", type: 'f'}
+]
+fakeFiles[`${fakeVars['PWD']}/node_modules`] = [
+	{name: "dotenv", type: 'd'},
+	{name: "irc", type: 'd'},
+	{name: "irc-colors", type: 'd'},
+	{name: "nan", type: 'd'}
+]
+fakeFiles[`${fakeVars['PWD']}/node_modules/dotenv`] = [
+	{name: "lib", type: 'd'},
+	{name: "LICENSE", type: 'f'},
+	{name: "package.json", type: 'f'}
+]
+fakeFiles[`${fakeVars['PWD']}/node_modules/irc`] = [
+	{name:"lib", type: 'd'},
+	{name: "LICENSE", type: 'f'},
+	{name: "package.json", type: 'f'}
+]
+fakeFiles[`${fakeVars['PWD']}/node_modules/irc-colors`] = [
+	{name: "lib", type: 'd'},
+	{name: "LICENSE", type: 'f'},
+	{name: "package.json", type: 'f'}
+]
+fakeFiles[`${fakeVars['PWD']}/node_modules/nan`] = [
+	{name: "lib", type: 'd'},
+	{name: "LICENSE", type: 'f'},
+	{name: "package.json", type: 'f'}
 ]
 
 const strPython = (userinput) => {
@@ -276,13 +405,11 @@ const fakeBash = (userinput) => {
 		// if(fakeFiles['.']) {
 		// 	files = files.concat(fakeFiles['.']).sort()
 		// }
-		console.log(fakeFiles)
 		const files = fakeFiles[fakeVars['PWD']]
-		console.log(fakeVars['PWD'])
-		console.log(files)
 		if (files) {
-			return files.sort().join('\n')
+			return files.map((file) => file.name).sort().join('\n')
 		} else {
+			console.log(fakeFiles)
 			return `ls: Permission denied`
 		}
 
@@ -331,7 +458,19 @@ const fakeBash = (userinput) => {
 		if(!fakeFiles[path]) {
 			fakeFiles[path] = []
 		}
-		fakeFiles[path].push(filename)
+		fakeFiles[path].push({name: filename, type: 'f'})
+		return ''
+	}
+	m = userinput.match(/mkdir\s+([a-zA-Z0-9/\.]+)/)
+	if(m) {
+		const [abspath, folder, filename] = pathInfo(bashStr(m[1]))
+		if(!fakeFiles[folder]) {
+			fakeFiles[folder] = []
+		}
+		if(!fakeFiles[abspath]) {
+			fakeFiles[abspath] = []
+		}
+		fakeFiles[folder].push({name: filename, type: 'd'})
 		return ''
 	}
 	// prefer quoted
@@ -346,17 +485,23 @@ const fakeBash = (userinput) => {
 		fakeVars[variable] = bashStr(value)
 		return ''
 	}
-	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+["']([a-zA-Z0-9\s\/\.\_\-\ \${}]+)["']/)
+	// im sure there is no bug in this regex
+	// what could go wrong xd
+	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']/)
 	if (!m) {
 		// fallback to non quoted arg
-		m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-\ \${}]+)/)
+		m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)/)
 	}
 	if(!m) {
 		m = userinput.match(/^([a-zA-Z0-9_\-]+)/)
 	}
 	if (m) {
 		const cmd = m[1]
-		const args = m[2] ? m[2].split(' ') : []
+		let args = m[2] ? m[2].split(' ') : []
+		if(m[3]) {
+			args = m.slice(1)
+		}
+		console.log(args)
 		if (cmd === 'uname' && args[0] === '-a') {
 			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
 		} else if (cmd === 'uname' && args[0] === '-r') {
@@ -372,47 +517,125 @@ const fakeBash = (userinput) => {
 			if (args[0][0] == '-') {
 				return `${cmd}: invalid option -- '${args[0]}'`
 			}
-			const path = args[0]
-			if (path === '/home/pi') {
-				fakeVars['PWD'] = '/home/pi'
-				return ''
-			} else if (path === '/tmp') {
-				fakeVars['PWD'] = '/tmp'
-				return ''
+			let path = bashStr(args[0])
+			if(/\./.test(path) && path !== '..') {
+				// TODO: support ../ and ./ and foo/../../bar paths
+				console.log('rel path not supportede')
+				return `-bash: cd: ${path}: Permission denied`
 			}
+			const [abspath, folder, filename] = pathInfo(path)
+			if (isDir(abspath)) {
+				if (!abspath.startsWith('/tmp/') &&
+					!abspath.startsWith('/home/pi/') &&
+					!['/', '/tmp', '/home/pi', '/home'].includes(abspath)) {
+					console.log(`illegal abs path '${abspath}'`)
+					return `-bash: cd: ${path}: Permission denied`
+				}
+				fakeVars['PWD'] = abspath
+				return ''
+			} else if (isFile(abspath)) {
+				return `-bash: cd: ${path}: Not a directory`
+			} else if (isDir(folder)) {
+				return `-bash: cd: ${path}: No such file or directory`
+			}
+			// console.log(`fallback because abspath=${abspath} dir=${isDir(abspath)}`)
 			return `-bash: cd: ${args[0]}: Permission denied`
 		} else if (cmd === 'echo') {
 			if (args[0] === '-n' || args[0] === '-e') {
-				args.pop()
+				args.shift()
 			}
 			let msg = args.join(' ')
 			return bashStr(msg)
+		} else if (cmd === 'printf') {
+			if (args.length === 0) {
+				return 'printf: usage: printf [-v var] format [arguments]'
+			}
+			let noArgs = false
+			if (args[0] === '--') {
+				args.shift()
+				noArgs = true
+			}
+			if (noArgs && args[0] == '-v') {
+				args.shift()
+				if(args.length === 0) {
+					return 'printf: usage: printf [-v var] format [arguments]'
+				}
+				const variable = args.shift()
+				if(!/^[a-zA-Z_]+[a-zA-Z0-9_]*/.test(variable)) {
+					return `-bash: printf: \`${variable}': not a valid identifier`
+				}
+				if(args.length === 0) {
+					return 'printf: usage: printf [-v var] format [arguments]'
+				}
+				const fmt = args[0]
+				let msg = bashStr(fmt)
+				args.shift()
+				args.forEach((arg) => {
+					arg = bashStr(arg)
+					msg = fmt.replace(/%[sib]/, arg)
+				})
+				// console.log(`set var ${variable} to ${msg} using printf`)
+				fakeVars[variable] = msg
+				return ''
+			}
+			if(!args[0]) {
+				return false // some arg pasing went wrong
+			}
+			if (noArgs && args[0][0] == '-') {
+				return `${cmd}: invalid option -- '${args[0]}'`
+			}
+			const fmt = args[0]
+			let msg = bashStr(fmt)
+			args.shift()
+			console.log(args)
+			args.forEach((arg) => {
+				arg = bashStr(arg)
+				msg = fmt.replace(/%[sib]/, arg)
+			})
+			return msg
+		} else if (cmd === 'ls') {
+			if(!args[0]) {
+				return
+			}
+			const [abspath, folder, filename] = pathInfo(bashStr(args[0]))
+			const files = fakeFiles[abspath]
+			if (files) {
+				return files.map((file) => file.name).sort().join('\n')
+			} else {
+				return `ls: cannot access '${abspath}': Permission denied`
+			}
 		} else if (cmd === 'rm') {
 			if (args.length === 0) {
 				return 'rm: missing operand'
 			}
+			let argRecurse = false
 			if (args[0] === '-r' || args[0] === '-rf') {
-				args.pop()
+				argRecurse = true
+				args.shift()
 			}
 			if (args[0][0] == '-') {
 				return `${cmd}: invalid option -- '${args[0]}'`
 			}
-			let filename = args[0]
-			if (filename.startsWith('./')) {
-				filename = filename.substring(2)
+			let path = bashStr(args[0])
+			const [abspath, folder, filename] = pathInfo(path)
+			if(isFile(abspath) && fakeFiles[folder]) {
+				if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
+					const i = fakeFiles[folder].map((file) => file.name).indexOf(filename)
+					fakeFiles[folder].splice(i, 1)
+					return ''
+				}
+			} else if(isDir(abspath)) {
+				if(argRecurse) {
+					fakeFiles[abspath] = []
+					return ''
+				} else {
+					return `rm: cannot remove '${path}': Is a directory`
+				}
 			}
-			if (!fakeFiles[fakeVars['PWD']]) {
-				fakeFiles[fakeVars['PWD']] = []
+			if (path[0] === '/') {
+				return `rm: cannot remove '${path}': Permission denied`
 			}
-			if (fakeFiles[fakeVars['PWD']].includes(filename)) {
-				const i = fakeFiles[fakeVars['PWD']].indexOf(filename)
-				fakeFiles[fakeVars['PWD']].splice(i, 1)
-				return ''
-			}
-			if (args[0][0] === '/') {
-				return `rm: cannot remove '${args[0]}': Permission denied`
-			}
-			return `rm: cannot remove '${args[0]}': No such file or directory`
+			return `rm: cannot remove '${path}': No such file or directory`
 			// return "rm: remove write-protected regular fipytlehKilledon error"
 		} else if (cmd === 'ls') {
 			// we handle ls else where
