@@ -55,6 +55,18 @@ const client = new irc.Client(process.env.IRC_SERVER, 'chillerbot', {
 	channels: [`#${process.env.IRC_CHANNEL}`],
 })
 
+const say = (msg) => {
+	if (!msg) {
+		return
+	}
+	// since we have full echo/say control
+	// one could do `echo /irccommand` or something like that
+	if(!/^\s*[a-zA-Z0-9`]/.test(msg)) {
+		msg = `_${msg}`
+	}
+	client.say(`#${process.env.IRC_CHANNEL}`, msg);
+}
+
 const checkPingPongCmd = (cmd) => {
 	let res = false
 	try {
@@ -76,25 +88,27 @@ const checkPingPongCmd = (cmd) => {
 
 const isPapaChiler = (from, isBridge, client) => {
 	if (from !== 'ChillerDragon') {
-		client.say(`#${process.env.IRC_CHANNEL}`, 'only papa chiler can pinger.');
+		say('only papa chiler can pinger.');
 		return false
 	}
 	if (isBridge) {
-		client.say(`#${process.env.IRC_CHANNEL}`, 'this command only works from irc');
+		say('this command only works from irc');
 		return false
 	}
 	return true
 }
 
 const messageQueue = []
+const fakeVars = {}
+fakeVars['PWD'] = '/home/pi'
+fakeVars['SHELL'] = '/bin/bash'
 /*
  * fakefiles
  * key: rel or abs path
  * val: [filenames]
  */
 const fakeFiles = {}
-let FAKE_PWD = '/home/pi'
-fakeFiles[FAKE_PWD] = [
+fakeFiles[fakeVars['PWD']] = [
 		"env.example",
 		"hex_to_pack.py",
 		"index.js",
@@ -107,7 +121,6 @@ fakeFiles[FAKE_PWD] = [
 		"tags",
 		"Dockerfile"
 ]
-let FAKE_SHELL = 'bash'
 
 const strPython = (userinput) => {
 	const strpy = /\s*["'][a-zA-Z]+["']\s*/
@@ -219,20 +232,32 @@ const safeBash = (userinput) => {
 	return safe
 }
 
+const bashStr = (string) => {
+	Object.keys(fakeVars).forEach((key) => {
+		const val = fakeVars[key]
+		const variable = '$' + key
+		const variableCurly = '${' + key + '}'
+		string = string.replaceAll(variable, val)
+		string = string.replaceAll(variableCurly, val)
+	})
+	string = string.replaceAll(/\${?[a-zA-Z_]+[a-zA-Z_0-9]*}?/g, '')
+	return string
+}
+
 const fakeBash = (userinput) => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
-		return 'Killed'
+		return 'bash error\nbash error\nbash error'
 	}
 	if (["bash", "bash;", "bash -c bash"].includes(userinput)) {
-		FAKE_PWD = '/home/pi'
-		FAKE_SHELL = '/bin/bash'
+		fakeVars['PWD'] = '/home/pi'
+		fakeVars['SHELL'] = '/bin/bash'
 		return ''
 	} else if (["zsh", "zsh;", "bash -c zsh"].includes(userinput)) {
-		FAKE_PWD = '/home/pi'
-		FAKE_SHELL = '/bin/zsh'
+		fakeVars['PWD'] = '/home/pi'
+		fakeVars['SHELL'] = '/bin/zsh'
 		return ''
 	} else if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
-		fakeFiles[FAKE_PWD] = []
+		fakeFiles[fakeVars['PWD']] = []
 		return ''
 	} else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
 		// let files = [
@@ -252,8 +277,8 @@ const fakeBash = (userinput) => {
 		// 	files = files.concat(fakeFiles['.']).sort()
 		// }
 		console.log(fakeFiles)
-		const files = fakeFiles[FAKE_PWD]
-		console.log(FAKE_PWD)
+		const files = fakeFiles[fakeVars['PWD']]
+		console.log(fakeVars['PWD'])
 		console.log(files)
 		if (files) {
 			return files.sort().join('\n')
@@ -262,13 +287,13 @@ const fakeBash = (userinput) => {
 		}
 
 	} else if (["pwd", "pwd;"].includes(userinput)) {
-		return FAKE_PWD;
+		return fakeVars['PWD'];
 	} else if (["env", "env;"].includes(userinput)) {
 		const env = [
-				`SHELL=${FAKE_SHELL}`,
+				`SHELL=${fakeVars['SHELL']}`,
 				'NVM_INC=/home/pi/.nvm/versions/node/v18.16.0/include/node',
 				'LANGUAGE=en_US',
-				`PWD=${FAKE_PWD}`,
+				`PWD=${fakeVars['PWD']}`,
 				'LOGNAME=pi',
 				'XDG_SESSION_TYPE=tty',
 				'MOTD_SHOWN=pam',
@@ -301,7 +326,7 @@ const fakeBash = (userinput) => {
 		const filename = split.pop()
 		let path = split.join('/')
 		if (path === '') {
-			path = FAKE_PWD
+			path = fakeVars['PWD']
 		}
 		if(!fakeFiles[path]) {
 			fakeFiles[path] = []
@@ -309,7 +334,23 @@ const fakeBash = (userinput) => {
 		fakeFiles[path].push(filename)
 		return ''
 	}
-	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-]+)/)
+	// prefer quoted
+	m = userinput.match(/^([a-zA-Z0-9_\-]+)=["']([a-zA-Z0-9\s\/\.\_\-\s\$]+)["']/)
+	if(!m) {
+		// fallback non quoted
+		m = userinput.match(/^([a-zA-Z0-9_\-]+)=([a-zA-Z0-9\s\/\.\_\-\$]+)/)
+	}
+	if(m) {
+		const variable = m[1]
+		const value = m[2]
+		fakeVars[variable] = bashStr(value)
+		return ''
+	}
+	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+["']([a-zA-Z0-9\s\/\.\_\-\ \${}]+)["']/)
+	if (!m) {
+		// fallback to non quoted arg
+		m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-\ \${}]+)/)
+	}
 	if(!m) {
 		m = userinput.match(/^([a-zA-Z0-9_\-]+)/)
 	}
@@ -325,7 +366,7 @@ const fakeBash = (userinput) => {
 				return ''
 			}
 			if (args.length === 0) {
-				FAKE_PWD = '/home/pi'
+				fakeVars['PWD'] = '/home/pi'
 				return ''
 			}
 			if (args[0][0] == '-') {
@@ -333,10 +374,10 @@ const fakeBash = (userinput) => {
 			}
 			const path = args[0]
 			if (path === '/home/pi') {
-				FAKE_PWD = '/home/pi'
+				fakeVars['PWD'] = '/home/pi'
 				return ''
 			} else if (path === '/tmp') {
-				FAKE_PWD = '/tmp'
+				fakeVars['PWD'] = '/tmp'
 				return ''
 			}
 			return `-bash: cd: ${args[0]}: Permission denied`
@@ -344,8 +385,8 @@ const fakeBash = (userinput) => {
 			if (args[0] === '-n' || args[0] === '-e') {
 				args.pop()
 			}
-			const msg = args.join(' ')
-			return msg
+			let msg = args.join(' ')
+			return bashStr(msg)
 		} else if (cmd === 'rm') {
 			if (args.length === 0) {
 				return 'rm: missing operand'
@@ -360,12 +401,12 @@ const fakeBash = (userinput) => {
 			if (filename.startsWith('./')) {
 				filename = filename.substring(2)
 			}
-			if (!fakeFiles[FAKE_PWD]) {
-				fakeFiles[FAKE_PWD] = []
+			if (!fakeFiles[fakeVars['PWD']]) {
+				fakeFiles[fakeVars['PWD']] = []
 			}
-			if (fakeFiles[FAKE_PWD].includes(filename)) {
-				const i = fakeFiles[FAKE_PWD].indexOf(filename)
-				fakeFiles[FAKE_PWD].splice(i, 1)
+			if (fakeFiles[fakeVars['PWD']].includes(filename)) {
+				const i = fakeFiles[fakeVars['PWD']].indexOf(filename)
+				fakeFiles[fakeVars['PWD']].splice(i, 1)
 				return ''
 			}
 			if (args[0][0] === '/') {
@@ -582,7 +623,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		const match = ghIssueRegex.exec(message)
 		if (match) {
 			const ghUrl = `https://github.com/ddnet/ddnet/issues/${match[1]}`
-			client.say(`#${process.env.IRC_CHANNEL}`, ghUrl);
+			say(ghUrl);
 		}
 	}
 	if (message[0] !== '!') {
@@ -594,28 +635,28 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		client.say(`#${process.env.IRC_CHANNEL}`, `https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc)`);
+		say(`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc)`);
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if(!isPapaChiler(from, isBridge, client)) {
 			return
 		}
 		const helpTxt = await sendHelpToChiler()
-		client.say(`#${process.env.IRC_CHANNEL}`, `${process.env.MOD_PING} ${helpTxt}`)
+		say(`${process.env.MOD_PING} ${helpTxt}`)
 	} else if (cmd === 'js' || cmd === 'node' || cmd === 'javascript' || cmd === 'deno') {
 		const unsafeUnsanitizedUserinput = args.join(' ')
 		if (process.env.ALLOW_JS != '1' ) {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'js is turned off because i got hacked')
+			say('js is turned off because i got hacked')
 			return
 		}
 		const denoProc = spawn('deno', ['eval', unsafeUnsanitizedUserinput])
 		const delay = parseInt(process.env.JS_DELAY, 10)
 		denoProc.stderr.on('data', (data) => {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'js error')
+			say('js error')
 		})
 		denoProc.stdout.on('data', (data) => {
 			data.toString().split('\n').forEach((line) => {
 				if (!delay) {
-					client.say(`#${process.env.IRC_CHANNEL}`, line)
+					say(line)
 				} else {
 					setTimeout(() => {
 						messageQueue.push(line)
@@ -625,7 +666,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		});
 	} else if (cmd === 'bash' || cmd === 'sh' || cmd === 'shell') {
 		if (process.env.ALLOW_BASH == '0' ) {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'bash broken because i got hacked')
+			say('bash broken because i got hacked')
 			return
 		}
 		const userinput = args.join(' ')
@@ -644,7 +685,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 					messageQueue.push(line)
 				})
 			} else {
-				client.say(`#${process.env.IRC_CHANNEL}`, 'unsafe bash')
+				say('unsafe bash')
 			}
 			return
 		}
@@ -652,7 +693,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
 		let numStdout = 0
 		shProc.stderr.on('data', (data) => {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'bash error')
+			say('bash error')
 		})
 		shProc.stdout.on('data', (data) => {
 			data.toString().split('\n').forEach((line) => {
@@ -707,7 +748,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 				if (numStdout === maxStdout) { line = 'max stdout ...' }
 				if (numStdout > maxStdout) { return }
 				if (!delay) {
-					client.say(`#${process.env.IRC_CHANNEL}`, line)
+					say(line)
 				} else {
 					setTimeout(() => {
 						messageQueue.push(line)
@@ -716,7 +757,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			})
 		} else {
 			pythonProcess.stderr.on('data', (data) => {
-				client.say(`#${process.env.IRC_CHANNEL}`, 'python error')
+				say('python error')
 			})
 			pythonProcess.stdout.on('data', (data) => {
 				data.toString().split('\n').forEach((line) => {
@@ -724,7 +765,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 					if (numStdout === maxStdout) { line = 'max stdout ...' }
 					if (numStdout > maxStdout) { return }
 					if (!delay) {
-						client.say(`#${process.env.IRC_CHANNEL}`, line)
+						say(line)
 					} else {
 						setTimeout(() => {
 							messageQueue.push(line)
@@ -745,14 +786,14 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			return
 		}
 		if (args.length < 2) {
-			client.say(`#${process.env.IRC_CHANNEL}`, 'usage: add_ping_ping <ping> <pong>')
+			say('usage: add_ping_ping <ping> <pong>')
 			return
 		}
 		fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args.slice(1).join(' ')}\n`);
 	} else {
 		const pong = checkPingPongCmd(cmd)
 		if(pong) {
-			client.say(`#${process.env.IRC_CHANNEL}`, pong)
+			say(pong)
 		}
 	}
 })
@@ -766,7 +807,7 @@ const printQueue = () => {
 		return
 	}
 	console.log(`print queue ${messageQueue.length} items left`)
-	client.say(`#${process.env.IRC_CHANNEL}`, messageQueue.shift())
+	say(messageQueue.shift())
 }
 
 setInterval(printQueue, 2000)
