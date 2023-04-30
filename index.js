@@ -15,6 +15,36 @@ console.log(`* irc channel=${process.env.IRC_CHANNEL}`)
 console.log(`* mod ping=${process.env.MOD_PING}`)
 console.log('***')
 
+const QUIZ = {}
+let currentQuiz = null
+let currentQuizSolvers = []
+
+const loadQuiz = () => {
+	const quizCsv = fs.existsSync('quiz_secret.csv') ? 'quiz_secret.csv' : 'quiz.csv'
+	const data = fs.readFileSync(quizCsv, 'utf8');
+	const rows = data.split('\n')
+
+	rows.forEach((row) => {
+		const cols = row.split(',')
+		const question = cols.shift()
+		const answer = cols.join(',')
+		if(question) {
+			QUIZ[question] = answer
+		}
+	})
+}
+
+const startQuiz = () => {
+	const items = Object.keys(QUIZ)
+	const item = items[Math.floor(Math.random()*items.length)];
+	return item
+}
+
+loadQuiz()
+
+// console.log(QUIZ)
+
+
 const getServerIpsByPlayerName = async (searchName) => {
 	const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
 	const data = await res.json()
@@ -61,10 +91,22 @@ const say = (msg) => {
 	}
 	// since we have full echo/say control
 	// one could do `echo /irccommand` or something like that
-	if(!/^\s*[a-zA-Z0-9`\-@]/.test(msg)) {
-		msg = `_${msg}`
-	}
+	// if(!/^\s*[a-zA-Z0-9`\-@]/.test(msg)) {
+	// 	msg = `_${msg}`
+	// }
 	client.say(`#${process.env.IRC_CHANNEL}`, msg);
+}
+
+const endQuiz = () => {
+	const answer = QUIZ[currentQuiz]
+	currentQuiz = null
+	if (currentQuizSolvers.length === 0){
+		say("quiz over! u all nob nobodi solvinger it")
+	} else {
+		say(`quiz over! these pro quizzzers quizzled the quiz: ${currentQuizSolvers.join(',')}`)
+	}
+	say(`The quiz answer was: ${answer}`)
+	currentQuizSolvers = []
 }
 
 const checkPingPongCmd = (cmd) => {
@@ -101,6 +143,7 @@ const isPapaChiler = (from, isBridge, client) => {
 const messageQueue = []
 const fakeVars = {}
 fakeVars['PWD'] = '/home/pi'
+fakeVars['HOME'] = '/home/pi'
 fakeVars['SHELL'] = '/bin/bash'
 /*
  * fakefiles
@@ -424,7 +467,7 @@ const fakeBash = (userinput) => {
 				'LOGNAME=pi',
 				'XDG_SESSION_TYPE=tty',
 				'MOTD_SHOWN=pam',
-				'HOME=/home/pi',
+				`HOME=${fakeVars['HOME']}`,
 				'LANG=en_US',
 				'LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:',
 				'SSH_CONNECTION=::1 58934 ::1 22',
@@ -640,8 +683,12 @@ const fakeBash = (userinput) => {
 		} else if (cmd === 'ls') {
 			// we handle ls else where
 		} else {
-			return `${cmd}: invalid option -- '${args[0]}'`
+			return `bash: ${cmd}: command not found`
 		}
+		// this says invalid option on every command
+		// } else if (args[0]) {
+		// 	return `${cmd}: invalid option -- '${args[0]}'`
+		// }
 	}
 	return false
 }
@@ -1013,6 +1060,54 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 			return
 		}
 		fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args.slice(1).join(' ')}\n`);
+	} else if (cmd === 'quiz') {
+		if (process.env.ALLOW_QUIZ != '1' ) {
+			say('quiz off')
+			return
+		}
+		if (args.length > 0) {
+			if (args[0] === 'end' || args[0] === 'solve') {
+				if (currentQuiz === null) {
+					say("no quiz running try !quiz")
+					return
+				}
+				endQuiz()
+				return
+			} else {
+				say("Invalid quiz arg. Usage: !quiz [solve]")
+				return
+			}
+		}
+		if (currentQuiz !== null) {
+			say(`quizzle running: ${currentQuiz}`)
+			return
+		}
+		currentQuiz = startQuiz()
+		currentQuizSolvers = []
+		say("Started quizzle answer with !a (your answer)")
+		say("Q: " + currentQuiz)
+	} else if (cmd === 'a') {
+		if (currentQuiz === null) {
+			say("no quiz running start one w !quiz")
+			return
+		}
+		const attempt = args.join(' ')
+		const answer = QUIZ[currentQuiz]
+
+		console.log(currentQuiz)
+		console.log(answer)
+
+		const answerPattern = new RegExp(answer)
+		if(answerPattern.test(attempt)) {
+			// say(`wowowo pro ${from} solved the quiz!`)
+			currentQuizSolvers.push(from)
+			if(currentQuizSolvers.length >= 3) {
+				endQuiz()
+			}
+		} else {
+			// say("wrong")
+		}
+		say("do '!quiz solve' to check the answer")
 	} else {
 		const pong = checkPingPongCmd(cmd)
 		if(pong) {

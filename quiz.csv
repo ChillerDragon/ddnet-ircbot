@@ -1,0 +1,5 @@
+sample question,.*\d.*
+strict question,\d
+meaning of life,42
+meaning of delimmer,^42$
+gime answer w commas,1,2
