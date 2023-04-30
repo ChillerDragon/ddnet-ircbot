@@ -1,6 +1,7 @@
 const irc = require('irc')
 const { networkInterfaces } = require('os')
 const fs = require('fs')
+const { Z_PARTIAL_FLUSH } = require('zlib')
 const spawn = require('child_process').spawn
 require('dotenv').config()
 
@@ -144,6 +145,11 @@ const isPapaChiler = (from, isBridge, client) => {
 
 const messageQueue = []
 const fakeVars = {}
+fakeVars['$'] = '24410'
+fakeVars['BASHPID'] = fakeVars['$']
+fakeVars['PPID'] = '24411'
+fakeVars['BASH_VERSION'] = '5.1.4(1)-release'
+fakeVars['HOSTNAME'] = 'ONBGY-FNG-MACHINE'
 fakeVars['PWD'] = '/home/pi'
 fakeVars['HOME'] = '/home/pi'
 fakeVars['SHELL'] = '/bin/bash'
@@ -157,17 +163,6 @@ fakeVars['PATH'] = '/home/pi/.cargo/bin:/home/pi/.nvm/versions/node/v18.16.0/bin
 const fakeFiles = {}
 const getDiskUsage = () => {
 	return JSON.stringify(fakeFiles).length
-}
-const unixDelFile = (path) => {
-	const [abspath, folder, filename] = pathInfo(path)
-	if(isFile(abspath) && fakeFiles[folder]) {
-		if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
-			const i = fakeFiles[folder].map((file) => file.name).indexOf(filename)
-			fakeFiles[folder].splice(i, 1)
-			return true
-		}
-	}
-	return false
 }
 const getPathType = (fullpath) => {
 	const split = fullpath.split('/')
@@ -185,8 +180,33 @@ const getPathType = (fullpath) => {
 	})
 	return type
 }
+
+const getFile = (fullpath) => {
+	const split = fullpath.split('/')
+	const filename = split.pop()
+	let path = split.join('/')
+	console.log(`getFile path=${path} filename=${filename}`)
+	let foundFile = null
+	if (!fakeFiles[path]) {
+		return null
+	}
+	fakeFiles[path].forEach((file) => {
+		if(file.name === filename) {
+			foundFile = file
+			return foundFile
+		}
+	})
+	return foundFile
+}
+
 const pathInfo = (fullpath) => {
-	if (fullpath === '..') {
+	if (fullpath === '.') {
+		const split =  fakeVars['PWD'].split('/')
+		const abspath = split.join('/')
+		split.pop()
+		const basepath = split.join('/') === '' ? '/' : split.join('/')
+		return [abspath, basepath, null]
+	} else if (fullpath === '..') {
 		const split =  fakeVars['PWD'].split('/')
 		split.pop()
 		const abspath = split.join('/')
@@ -220,6 +240,7 @@ let OKS = 0
 fakeVars['PWD'] = '/home/pi/test'
 console.log(pathInfo("..").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("..").join(','))
 fakeVars['PWD'] = '/home/pi'
+console.log(pathInfo(".").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo(".").join(','))
 console.log(pathInfo("..").join(',') === '/home,/,' ? OKS++ : pathInfo("..").join(','))
 console.log(pathInfo("foo").join(',') === '/home/pi/foo,/home/pi,foo' ? OKS++ : pathInfo("foo").join(','))
 console.log(pathInfo("foo/bar").join(',') === '/home/pi/foo/bar,/home/pi/foo,bar' ? OKS++ : pathInfo("foo/bar").join(','))
@@ -230,7 +251,7 @@ console.log(pathInfo("/tmp/test.txt").join(',') === '/tmp/test.txt,/tmp,test.txt
 console.log(pathInfo("/tmp/ntested/test.txt").join(',') === '/tmp/ntested/test.txt,/tmp/ntested,test.txt' ? OKS++ : pathInfo("/tmp/ntested/test.txt").join(','))
 console.log(pathInfo("/tmp/ntested/").join(',') === '/tmp/ntested,/tmp/ntested,' ? OKS++ : pathInfo("/tmp/ntested/").join(','))
 
-if(OKS !== 10) {
+if(OKS !== 11) {
 	process.exit(1)
 }
 
@@ -243,18 +264,49 @@ const isDir = (fullpath) => {
 const isFile = (fullpath) => {
 	return getPathType(fullpath) === 'f'
 }
-KNOWN_COMMANDS = [
-	"cat", "/usr/bin/cat", "/bin/cat",
-	"head", "/usr/bin/head", "/bin/head",
-	"tail", "/usr/bin/tail", "/bin/tail",
-	"grep", "/usr/bin/grep", "/bin/grep",
-	"ls", "/usr/bin/ls", "/bin/ls",
-	"ldd", "/usr/bin/ldd", "/bin/ldd",
-	"rm", "/usr/bin/rm", "/bin/rm",
-	"mkdir", "/usr/bin/mkdir", "/bin/mkdir",
-	"touch", "/usr/bin/touch", "/bin/touch",
-	"df", "/usr/bin/df", "/bin/df",
-]
+const isDirOrFile = (fullpath) => {
+	return ['f', 'd'].includes(getPathType(fullpath))
+}
+// KNOWN_COMMANDS = [
+// 	"cat", "/usr/bin/cat", "/bin/cat",
+// 	"head", "/usr/bin/head", "/bin/head",
+// 	"tail", "/usr/bin/tail", "/bin/tail",
+// 	"grep", "/usr/bin/grep", "/bin/grep",
+// 	"ls", "/usr/bin/ls", "/bin/ls",
+// 	"ldd", "/usr/bin/ldd", "/bin/ldd",
+// 	"rm", "/usr/bin/rm", "/bin/rm",
+// 	"mkdir", "/usr/bin/mkdir", "/bin/mkdir",
+// 	"touch", "/usr/bin/touch", "/bin/touch",
+// 	"df", "/usr/bin/df", "/bin/df",
+// 	"kill", "/usr/bin/kill", "/bin/kill",
+// 	"echo", "/usr/bin/echo", "/bin/echo",
+// 	"ps", "/usr/bin/ps", "/bin/ps",
+// ]
+const isFileHandleExecutable = (fileHandle) => {
+	if(!fileHandle) {
+		return false
+	}
+	if(!fileHandle.perms) {
+		return false
+	}
+	return fileHandle.perms[9] === 'x'
+}
+const cmdInUnixPath = (cmd) => {
+	// const executablesInPath = []
+	let match = false
+	fakeVars['PATH'].split(':').forEach((path) => {
+		const files = fakeFiles[path] ? fakeFiles[path] : []
+		files.forEach((file) => {
+			if (isFileHandleExecutable(file)) {
+				if(file.name === cmd && !match) {
+					match = `${path}/${file.name}`
+				}
+			}
+		})
+	})
+	return match
+	// return executablesInPath.map((filehandle) => filehandle.name).includes(cmd)
+}
 LDD = {}
 LDD['/bin/bash'] = [
 	'linux-vdso.so.1 (0xbecea000)',
@@ -268,118 +320,137 @@ fakeFiles['/home'] = [
 	{name: 'pi', type: 'd'}
 ]
 fakeFiles['/tmp'] = [
-	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-ModemManager.service-EuLjZi', type: 'd'},
-	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-logind.service-3YBxBi', type: 'd'},
-	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-timesyncd.service-NzZJYh', type: 'd'}
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-ModemManager.service-EuLjZi', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-logind.service-3YBxBi', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-systemd-timesyncd.service-NzZJYh', type: 'd', perms: 'drwxr-xr-x'},
 ]
 fakeFiles['/'] = [
-	{name: 'bin', type: 'd'},
-	{name: 'boot', type: 'd'},
-	{name: 'dev', type: 'd'},
-	{name: 'etc', type: 'd'},
-	{name: 'home', type: 'd'},
-	{name: 'lib', type: 'd'},
-	{name: 'lib64', type: 'd'},
-	{name: 'lost+found', type: 'd'},
-	{name: 'mnt', type: 'd'},
-	{name: 'opt', type: 'd'},
-	{name: 'proc', type: 'd'},
-	{name: 'root', type: 'd'},
-	{name: 'run', type: 'd'},
-	{name: 'sbin', type: 'd'},
-	{name: 'srv', type: 'd'},
-	{name: 'sys', type: 'd'},
-	{name: 'tmp', type: 'd'},
-	{name: 'usr', type: 'd'},
-	{name: 'var', type: 'd'}
+	{name: 'bin', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'boot', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'dev', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'etc', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'home', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'lib', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'lib64', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'lost+found', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'mnt', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'opt', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'proc', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'root', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'run', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'sbin', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'srv', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'sys', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'tmp', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'usr', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'var', type: 'd', perms: 'drwxr-xr-x'},
 ]
 fakeFiles['/usr'] = [
-	{name: 'bin', type: 'd'},
-	{name: 'games', type: 'd'},
-	{name: 'include', type: 'd'},
-	{name: 'lib', type: 'd'},
-	{name: 'libexec', type: 'd'},
-	{name: 'local', type: 'd'},
-	{name: 'sbin', type: 'd'},
-	{name: 'share', type: 'd'},
-	{name: 'src', type: 'd'},
+	{name: 'bin', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'games', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'include', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'lib', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'libexec', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'local', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'sbin', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'share', type: 'd', perms: 'drwxr-xr-x'},
+	{name: 'src', type: 'd', perms: 'drwxr-xr-x'},
 ]
 fakeFiles['/usr/bin'] = [
-	{name: 'sudo', type: 'f', content: 'ELF(tj44        (pt444  TTT.00pppDDQtdRtdtt/lib/ld-linux-armhf.so.3GNUMOWSlR@h0SGNU&<`:HV-'},
-	{name: 'apt', type: 'f', content: 'ELF(414         (p   ((444  TTT@ @ .....((pppDDQtdRtd.../lib/ld-linux-armhf.so.3GNUHK`-ӬGNU%    @ $h@DG PPV P1$?!'},
-	{name: 'rm', type: 'f'},
-	{name: 'touch', type: 'f'},
-	{name: 'mkdir', type: 'f'},
-	{name: 'df', type: 'f'},
-	{name: 'head', type: 'f', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
-	{name: 'tail', type: 'f', content: '_/TukM/bq& 7'},
-	{name: 'grep', type: 'f', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
-	{name: 'ls', type: 'f', content: '@@@55@@@Q3Q3ww%'},
-	{name: 'bash', type: 'f', content: '@m@@p#@pS@8'},
-	{name: 'ldd', type: 'f'},
-	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
-	{name: 'zsh', type: 'f'},
-	{name: 'sh', type: 'f'},
+	{name: 'sudo', type: 'f', perms: '-rwxr-xr-x', content: 'ELF(tj44        (pt444  TTT.00pppDDQtdRtdtt/lib/ld-linux-armhf.so.3GNUMOWSlR@h0SGNU&<`:HV-'},
+	{name: 'apt', type: 'f', perms: '-rwxr-xr-x', content: 'ELF(414         (p   ((444  TTT@ @ .....((pppDDQtdRtd.../lib/ld-linux-armhf.so.3GNUHK`-ӬGNU%    @ $h@DG PPV P1$?!'},
+	{name: 'rm', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'touch', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'mkdir', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'df', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'head', type: 'f', perms: '-rwxr-xr-x', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
+	{name: 'tail', type: 'f', perms: '-rwxr-xr-x', content: '_/TukM/bq& 7'},
+	{name: 'grep', type: 'f', perms: '-rwxr-xr-x', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
+	{name: 'ls', type: 'f', perms: '-rwxr-xr-x', content: '@@@55@@@Q3Q3ww%'},
+	{name: 'bash', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'ldd', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'cat', type: 'f', perms: '-rwxr-xr-x', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
+	{name: 'zsh', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'sh', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'kill', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'echo', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'ps', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'which', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'whoami', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 fakeFiles['/usr/lib'] = [
-	{name: 'ld-linux-armhf.so.3', type: 'f'},
-	{name: 'ld-linux.so.3', type: 'f'},
-	{name: 'libpigpiod_if2.so', type: 'f'},
-	{name: 'libpigpiod_if2.so.1', type: 'f'},
-	{name: 'libopusfile.a', type: 'f'},
-	{name: 'libwiringPi.so', type: 'f'},
-	{name: 'libwiringPi.so.2.50', type: 'f'},
-	{name: 'libsupp.a', type: 'f'},
+	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
+	{name: 'ld-linux.so.3', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libpigpiod_if2.so', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libpigpiod_if2.so.1', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libopusfile.a', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libwiringPi.so', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libwiringPi.so.2.50', type: 'f', perms: '-rw-r--r--'},
+	{name: 'libsupp.a', type: 'f', perms: '-rw-r--r--'},
 ]
 fakeFiles['/bin'] = [
-	{name: 'head', type: 'f', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
-	{name: 'tail', type: 'f', content: '_/TukM/bq& 7'},
-	{name: 'grep', type: 'f', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
-	{name: 'ls', type: 'f', content: '@@@55@@@Q3Q3ww%'},
-	{name: 'bash', type: 'f', content: '@m@@p#@pS@8'},
-	{name: 'ldd', type: 'f'},
-	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
-	{name: 'zsh', type: 'f'},
-	{name: 'sh', type: 'f'},
+	{name: 'head', type: 'f', perms: '-rwxr-xr-x', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
+	{name: 'tail', type: 'f', perms: '-rwxr-xr-x', content: '_/TukM/bq& 7'},
+	{name: 'grep', type: 'f', perms: '-rwxr-xr-x', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
+	{name: 'ls', type: 'f', perms: '-rwxr-xr-x', content: '@@@55@@@Q3Q3ww%'},
+	{name: 'bash', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'ldd', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'cat', type: 'f', perms: '-rwxr-xr-x', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
+	{name: 'zsh', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'sh', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'kill', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'echo', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'which', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'whoami', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x'},
 ]
 fakeFiles[fakeVars['PWD']] = [
-	{name: "env.example", type: 'f'},
-	{name: "hex_to_pack.py", type: 'f'},
-	{name: "index.js", type: 'f'},
-	{name: "LICENSE", type: 'f', content: 'MIT'},
-	{name: "node_modules", type: 'd'},
-	{name: "package.json", type: 'f'},
-	{name: "package-lock.json", type: 'f'},
-	{name: "ping_pong.csv", type: 'f'},
-	{name: "README.md", type: 'f'},
-	{name: "tags", type: 'f'},
-	{name: "Dockerfile", type: 'f'}
+	{name: "env.example", type: 'f', perms: '-rw-r--r--'},
+	{name: "hex_to_pack.py", type: 'f', perms: '-rw-r--r--'},
+	{name: "index.js", type: 'f', perms: '-rw-r--r--'},
+	{name: "LICENSE", type: 'f', perms: '-rw-r--r--', content: 'MIT'},
+	{name: ".env", type: 'f', perms: '-rw-r--r--', content:
+		'# pls no hack me thank\n' +
+		'# this should be hidden\n' +
+		'# EAT max stdout u hacker hahaha\n' +
+		"MOD_PING='<@&251553225810893153>'\n" +
+		"IRC_PASSWORD='ilikehentai69'\n" +
+		"ALLOW_BASH=1\n"
+	},
+	{name: "node_modules", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "package.json", type: 'f', perms: '-rw-r--r--'},
+	{name: "package-lock.json", type: 'f', perms: '-rw-r--r--'},
+	{name: "ping_pong.csv", type: 'f', perms: '-rw-r--r--'},
+	{name: "README.md", type: 'f', perms: '-rw-r--r--'},
+	{name: "tags", type: 'f', perms: '-rw-r--r--'},
+	{name: "Dockerfile", type: 'f', perms: '-rw-r--r--'}
 ]
 fakeFiles[`${fakeVars['PWD']}/node_modules`] = [
-	{name: "dotenv", type: 'd'},
-	{name: "irc", type: 'd'},
-	{name: "irc-colors", type: 'd'},
-	{name: "nan", type: 'd'}
+	{name: "dotenv", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "irc", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "irc-colors", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "nan", type: 'd', perms: 'drwxr-xr-x'}
 ]
 fakeFiles[`${fakeVars['PWD']}/node_modules/dotenv`] = [
-	{name: "lib", type: 'd'},
-	{name: "LICENSE", type: 'f'},
-	{name: "package.json", type: 'f'}
+	{name: "lib", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "LICENSE", type: 'f', perms: '-rw-r--r--'},
+	{name: "package.json", type: 'f', perms: '-rw-r--r--'}
 ]
 fakeFiles[`${fakeVars['PWD']}/node_modules/irc`] = [
-	{name:"lib", type: 'd'},
-	{name: "LICENSE", type: 'f'},
-	{name: "package.json", type: 'f'}
+	{name:"lib", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "LICENSE", type: 'f', perms: '-rw-r--r--'},
+	{name: "package.json", type: 'f', perms: '-rw-r--r--'}
 ]
 fakeFiles[`${fakeVars['PWD']}/node_modules/irc-colors`] = [
-	{name: "lib", type: 'd'},
-	{name: "LICENSE", type: 'f'},
-	{name: "package.json", type: 'f'}
+	{name: "lib", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "LICENSE", type: 'f', perms: '-rw-r--r--'},
+	{name: "package.json", type: 'f', perms: '-rw-r--r--'}
 ]
 fakeFiles[`${fakeVars['PWD']}/node_modules/nan`] = [
-	{name: "lib", type: 'd'},
-	{name: "LICENSE", type: 'f'},
-	{name: "package.json", type: 'f'}
+	{name: "lib", type: 'd', perms: 'drwxr-xr-x'},
+	{name: "LICENSE", type: 'f', perms: '-rw-r--r--'},
+	{name: "package.json", type: 'f', perms: '-rw-r--r--'}
 ]
 /*
  * measured in file system represented as string? wot
@@ -399,6 +470,120 @@ const getDiskError = () => {
 		return 'No Space Left on Device'
 	}
 	return null
+}
+const unixDelFile = (path) => {
+	const [abspath, folder, filename] = pathInfo(path)
+	if(isFile(abspath) && fakeFiles[folder]) {
+		if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
+			const i = fakeFiles[folder].map((file) => file.name).indexOf(filename)
+			fakeFiles[folder].splice(i, 1)
+			return true
+		}
+	}
+	return false
+}
+const getCurrentUnixUser = () => {
+	return 'pi'
+	// return fakeVars['USER']
+}
+const getCurrentPid = () => {
+	return fakeVars['BASHPID']
+}
+const getParentPid = () => {
+	return fakeVars['PPID']
+}
+const getCurrentShellShort = () => {
+	const dirs = fakeVars['SHELL'].split('/')
+	return dirs[dirs.length - 1]
+}
+
+/*
+	appendToFileContent
+
+	returns null or disk error string
+*/
+const appendToFileContent = (path, text) => {
+	const [abspath, folder, filename] = pathInfo(path)
+	const fileHandle = getFile(abspath)
+	if (!fileHandle) {
+		return null
+	}
+	if (!fileHandle.content) {
+		fileHandle.content = ''
+	}
+	if(!text) {
+		text = ''
+	}
+	fileHandle.content += text
+	const diskError = getDiskError()
+	if (diskError) {
+		fileHandle.content = ''
+	}
+	return diskError
+}
+
+/*
+	createFileWithContent
+
+	returns null or disk error string
+*/
+const createFileWithContent = (path, text) => {
+	const [abspath, folder, filename] = pathInfo(path)
+	const fileHandle = getFile(abspath)
+	if (fileHandle) {
+		return null
+	}
+	if(!text) {
+		text = ''
+	}
+	let createdFolder = false
+	if(!fakeFiles[folder]) {
+		createdFolder = true
+		fakeFiles[folder] = []
+	}
+	fakeFiles[folder].push({name: filename, type: 'f', perms: '-rw-r--r--', content: text})
+	const diskError = getDiskError()
+	if (diskError) {
+		const fullpath = `${folder}/${filename}`
+		unixDelFile(fullpath)
+		if(createdFolder) {
+			delete fakeFiles[folder]
+		}
+	}
+	return diskError
+}
+
+/*
+	CreateFolder
+
+	returns null or disk error string
+*/
+const CreateFolder = (path) => {
+	const [abspath, folder, filename] = pathInfo(path)
+	const fileHandle = getFile(abspath)
+	if (fileHandle) {
+		console.log(`warning folder already exists=${abspath}`)
+		return null
+	}
+	let createdParentFolder = false
+	if(!fakeFiles[folder]) {
+		createdParentFolder = true
+		fakeFiles[folder] = []
+	}
+	if(!fakeFiles[abspath]) {
+		fakeFiles[abspath] = []
+	}
+	fakeFiles[folder].push({name: filename, type: 'd', perms: 'drwxr-xr-x'})
+	const diskError = getDiskError()
+	if (diskError) {
+		delete fakeFiles[abspath]
+		const fullpath = `${folder}/${filename}`
+		unixDelFile(fullpath) // yes everything is a file in unix xd
+		if(createdParentFolder) {
+			delete fakeFiles[folder]
+		}
+	}
+	return diskError
 }
 
 const strPython = (userinput) => {
@@ -458,15 +643,9 @@ const safeBash = (userinput) => {
 	if (userinput === 'id' || userinput === 'id;') {
 		return userinput
 	}
-	if (["whoami", "whoami;"].includes(userinput)) {
-		return userinput
-	}
 	// if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
 	// 	return userinput
 	// }
-	if (userinput === 'uptime' || userinput === 'uptime;') {
-		return userinput
-	}
 	if (userinput === 'uptime' || userinput === 'uptime;') {
 		return userinput
 	}
@@ -526,6 +705,9 @@ const safeBash = (userinput) => {
 }
 
 const bashStr = (string) => {
+	if(!string) {
+		return ''
+	}
 	Object.keys(fakeVars).forEach((key) => {
 		const val = fakeVars[key]
 		const variable = '$' + key
@@ -534,6 +716,30 @@ const bashStr = (string) => {
 		string = string.replaceAll(variableCurly, val)
 	})
 	string = string.replaceAll(/\${?[a-zA-Z_]+[a-zA-Z_0-9]*}?/g, '')
+	// simple globbing only 1 star and only in the begging
+	if(string.startsWith('*')) {
+		const files = fakeFiles[fakeVars['PWD']] ? fakeFiles[fakeVars['PWD']] : []
+		const matches = []
+		files.forEach((file) => {
+			if (file.name.endsWith(string.substring(1))) {
+				matches.push(file.name)
+			}
+		})
+		if (matches.length !== 0) {
+			return matches.join('\n')
+		}
+	} else if (string.endsWith('*')) {
+		const files = fakeFiles[fakeVars['PWD']] ? fakeFiles[fakeVars['PWD']] : []
+		const matches = []
+		files.forEach((file) => {
+			if (file.name.startsWith(string.substring(0,string.length - 1))) {
+				matches.push(file.name)
+			}
+		})
+		if (matches.length !== 0) {
+			return matches.join('\n')
+		}
+	}
 	return string
 }
 
@@ -552,31 +758,30 @@ const fakeBash = (userinput) => {
 	} else if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
 		fakeFiles[fakeVars['PWD']] = []
 		return ''
-	} else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
-		// let files = [
-		// 	"env.example",
-		// 	"hex_to_pack.py",
-		// 	"index.js",
-		// 	"LICENSE",
-		// 	"node_modules",
-		// 	"package.json",
-		// 	"package-lock.json",
-		// 	"ping_pong.csv",
-		// 	"README.md",
-		// 	"tags",
-		// 	"Dockerfile"
-		// ]
-		// if(fakeFiles['.']) {
-		// 	files = files.concat(fakeFiles['.']).sort()
-		// }
-		const files = fakeFiles[fakeVars['PWD']]
-		if (files) {
-			return files.map((file) => file.name).sort().join('\n')
-		} else {
-			console.log(fakeFiles)
-			return `ls: Permission denied`
-		}
-
+	// } else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
+	// 	// let files = [
+	// 	// 	"env.example",
+	// 	// 	"hex_to_pack.py",
+	// 	// 	"index.js",
+	// 	// 	"LICENSE",
+	// 	// 	"node_modules",
+	// 	// 	"package.json",
+	// 	// 	"package-lock.json",
+	// 	// 	"ping_pong.csv",
+	// 	// 	"README.md",
+	// 	// 	"tags",
+	// 	// 	"Dockerfile"
+	// 	// ]
+	// 	// if(fakeFiles['.']) {
+	// 	// 	files = files.concat(fakeFiles['.']).sort()
+	// 	// }
+	// 	const files = fakeFiles[fakeVars['PWD']]
+	// 	if (files) {
+	// 		return files.map((file) => file.name).sort().join('\n')
+	// 	} else {
+	// 		console.log(fakeFiles)
+	// 		return `ls: Permission denied`
+	// 	}
 	} else if (["pwd", "pwd;"].includes(userinput)) {
 		return fakeVars['PWD'];
 	} else if (["env", "env;"].includes(userinput)) {
@@ -614,48 +819,34 @@ const fakeBash = (userinput) => {
 	if(m) {
 		const path = bashStr(m[1])
 		const [abspath, folder, filename] = pathInfo(path)
-		if(!fakeFiles[folder]) {
-			fakeFiles[folder] = []
-		}
-		if(!fakeFiles[abspath]) {
-			fakeFiles[abspath] = []
-		}
-		const realpath = `${folder}/${filename}`
-		if(getPathType(realpath) !== null) {
+		if(getPathType(abspath) !== null) {
 			// touch just pokes the file
 			// if we intoduce dates we should update last modified
 			// here
 			return ''
 		}
-		fakeFiles[folder].push({name: filename, type: 'f'})
-		const diskError = getDiskError();
-		if (diskError) {
-			unixDelFile(realpath)
-			return `touch: cannot create file ‘${path}’: ${diskError}`;
-		};
-		return ''
+		if(!isDir(folder)) {
+			return `touch: cannot touch '${path}': No such file or directory`
+		}
+		const ioError = createFileWithContent(abspath, '')
+		if(ioError === null) {
+			return ''
+		}
+		return ioError
 	}
 	m = userinput.match(/mkdir\s+([a-zA-Z0-9/\.]+)/)
 	if(m) {
 		const path = bashStr(m[1])
 		const [abspath, folder, filename] = pathInfo(path)
-		if(!fakeFiles[folder]) {
-			fakeFiles[folder] = []
-		}
-		if(!fakeFiles[abspath]) {
-			fakeFiles[abspath] = []
-		}
 		const realpath = `${folder}/${filename}`
 		if(getPathType(realpath) !== null) {
 			return `mkdir: cannot create directory ‘${path}’: File exists`
 		}
-		fakeFiles[folder].push({name: filename, type: 'd'})
-		const diskError = getDiskError();
-		if (diskError) {
-			unixDelFile(realpath)
-			return `touch: cannot create file ‘${path}’: ${diskError}`;
-		};
-		return ''
+		const ioError = CreateFolder(abspath)
+		if (ioError === null) {
+			return ''
+		}
+		return `mkdir: cannot create file ‘${path}’: ${ioError}`;
 	}
 	// prefer quoted
 	m = userinput.match(/^([a-zA-Z0-9_\-]+)=["']([a-zA-Z0-9\s\/\.\_\-\s\$]+)["']/)
@@ -669,22 +860,13 @@ const fakeBash = (userinput) => {
 		fakeVars[variable] = bashStr(value)
 		return ''
 	}
-	// im sure there is no bug in this regex
-	// what could go wrong xd
-	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)?["']/)
-	if (!m) {
-		// fallback to non quoted arg
-		m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+([a-zA-Z0-9\s\/\.\_\-\ \${}%]+)/)
-	}
+	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+(.*)/)
 	if(!m) {
 		m = userinput.match(/^([a-zA-Z0-9_\-]+)/)
 	}
 	if (m) {
 		const cmd = m[1]
 		let args = m[2] ? m[2].split(' ') : []
-		if(m[3]) {
-			args = m.slice(1)
-		}
 		console.log(args)
 		if (cmd === 'uname' && args[0] === '-a') {
 			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
@@ -731,15 +913,257 @@ const fakeBash = (userinput) => {
 			}
 			// console.log(`fallback because abspath=${abspath} dir=${isDir(abspath)}`)
 			return `-bash: cd: ${args[0]}: Permission denied`
+		} else if (cmd === 'kill') {
+			if (args[0] === '-9') {
+				args.shift()
+			}
+			let killAll = false
+			if (args[0] === '-1') {
+				args.shift()
+				killAll = true
+			}
+			if(killAll) {
+				return 'bash error'
+			}
+			const pid = bashStr(args[0])
+			if(pid === getCurrentPid() || pid === getParentPid()) {
+				return 'bash error'
+			}
+			if(pid < 20000) {
+				return `-bash: kill: (${pid}) - Operation not permitted`
+			}
+			return ''
 		} else if (cmd === 'echo') {
 			if (args[0] === '-n' || args[0] === '-e') {
 				args.shift()
 			}
-			let msg = args.join(' ')
-			return bashStr(msg)
+			const msg = args.join(' ')
+			const expandedArgs = bashStr(msg)
+			const redirectRegex = new RegExp('(.*)\\s*(>+)\\s*(.*)')
+			console.log("expandedArgs="+expandedArgs)
+			m = expandedArgs.match(redirectRegex)
+			if(m) {
+				const text = m[1]
+				const isAppend = m[2] !== '>'
+				const outfile = m[3]
+				console.log(m)
+				console.log(text)
+				console.log(isAppend)
+				console.log(outfile)
+				// null random urandom zero etc
+				if(outfile.startsWith('/dev/')) {
+					return ''
+				}
+				const [abspath, _folder, _filename] = pathInfo(outfile)
+				const outfileHandle = getFile(abspath)
+				if(!outfileHandle) {
+					const ioError = createFileWithContent(abspath, text)
+					if(ioError === null) {
+						return ''
+					}
+					return ioError
+				}
+				if(outfileHandle.type === 'd') {
+					return `-bash: ${outfile}: Is a directory`
+				}
+				const ioError = appendToFileContent(abspath, text)
+				if(ioError === null) {
+					return ''
+				}
+				return ioError
+			} else {
+				console.log(`redirect regex did not match inout=${msg}`)
+				console.log(`expanded=${expandedArgs} regex=${redirectRegex.source}`)
+			}
+			return expandedArgs
+		} else if (cmd === 'git') {
+			const helptxt = [
+				'usage: git [--version] [--help] [-C <path>] [-c <name>=<value>]',
+				'	[--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]',
+				'	[-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]',
+				'	[--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]',
+				'	<command> [<args>]'
+			].join('\n')
+			if(args.length === 0) {
+				return helptxt
+			}
+			if(['--recursive', '-v', '--verbose', '--force', '-f', '--no-pager', '--bare', '--paginate'].includes(args[0])) {
+				args.shift()
+			}
+			if(args[0] === 'clone') {
+				args.shift()
+				if(['--recursive', '-v', '--verbose', '--force', '-f', '--no-pager', '--bare', '--paginate'].includes(args[0])) {
+					args.shift()
+				}
+				if(args[0][0] === '-') {
+					return `error: unknown option \`${args[0]}'\n${helptxt}`
+				}
+				const url = args[0]
+				// https://github.com/foo/bar
+				// git@github.com:foo/bar
+				const urlRegex = new RegExp('(git@|https?://).*[:/](.*)/(.*)(.git)?')
+				m = url.match(urlRegex)
+				if(m) {
+					const folders = m[2].split('/')
+					const basename = folders[folders.length - 1]
+					const [abspath, folder, filename] = pathInfo(basename)
+					if(isDirOrFile(abspath)) {
+						return `fatal: destination path '${basename}' already exists and is not an empty directory.`
+					}
+					let ioError = CreateFolder(basename)
+					if(ioError === null) {
+						console.log(`created folder = ${basename} without io eror`)
+					}
+					if(ioError === null) { ioError = createFileWithContent(`${basename}/README.md`, 'this is the readme'); }
+					if(ioError === null) { ioError = createFileWithContent(`${basename}/LICENSE`, 'MIT License'); }
+					if(ioError === null) { ioError = CreateFolder(`${basename}/src`); }
+					if(ioError === null) { ioError = CreateFolder(`${basename}/.git`); }
+					if(ioError === null) { ioError = CreateFolder(`${basename}/.gitignore`); }
+					if (ioError !== null) {
+						return [
+							`Cloning into '${basename}'...`,
+							'remote: Enumerating objects: 2483, done.',
+							'remote: Total 6 (delta 0), reused 0 (delta 0) error: unable to create temporary sha1 filename : No space left on device',
+							'fatal: failed to write object fatal: unpack-objects failed',
+							'filename : No space left on device',
+							'fatal: failed to write object fatal: unpack-objects failed'
+						]
+					}
+					return [
+						`Cloning into '${basename}'...`,
+						'remote: Enumerating objects: 2483, done.',
+						'remote: Counting objects: 100% (157/157), done.',
+						'remote: Compressing objects: 100% (106/106), done.',
+						'remote: Total 2483 (delta 103), reused 100 (delta 50), pack-reused 2326',
+						'Receiving objects: 100% (2483/2483), 347.08 KiB | 1.14 MiB/s, done.',
+						'Resolving deltas: 100% (1775/1775), done.'
+					].join('\n')
+				} else {
+					return `fatal: repository '${url}' does not exist`
+				}
+			} else if(args[0] === 'status') {
+				return 'fatal: not a git repository (or any of the parent directories): .git'
+			} else if(args[0] === '--help') {
+				return helptxt
+			} else {
+				return `git: '${args[0]}' is not a git command. See 'git --help'.`
+			}
+		} else if (cmd === 'reboot') {
+			return [
+				'Failed to set wall message, ignoring: Interactive authentication required.',
+				'Failed to reboot system via logind: Interactive authentication required.',
+				'Failed to open initctl fifo: Permission denied',
+				'Failed to talk to init daemon.'
+			].join('\n')
+		} else if (cmd === 'ps') {
+			const pid = !parseInt(getCurrentPid(), 10) ? 755767 : parseInt(getCurrentPid(), 10)
+			return [
+				`PID TTY          TIME CMD`,
+				`${pid} pts/1    00:00:00 ${getCurrentShellShort()}`,
+				`${pid + Math.floor(Math.random() * 500)} pts/1    00:00:00 ps`
+			].join('\n')
+		} else if (cmd === 'hostname') {
+			return fakeVars['HOSTNAME'] // technically needs reboot
+		} else if (cmd === 'command') {
+			if (args[0] === '-v') {
+				args.shift()
+			} else {
+				// saying just command without -v basically runs the command
+				// could be done with recursion
+				return false
+			}
+			const check = bashStr(args[0])
+			const match = cmdInUnixPath(check)
+			if (!match) {
+				return ''
+			}
+			return match
+		} else if (cmd === 'type') {
+			const check = bashStr(args[0])
+			const match = cmdInUnixPath(check)
+			if (!match) {
+				return `-bash: type: ${check}: not found`
+			}
+			const [abspath, folder, filename] = pathInfo(match)
+			return `${check} is hashed (${abspath})`
+		} else if (cmd === 'which') {
+			const check = bashStr(args[0])
+			const match = cmdInUnixPath(check)
+			if (!match) {
+				return `which: no ${check} in (${fakeVars['PATH']})`
+			}
+			const [abspath, folder, filename] = pathInfo(match)
+			return abspath
+		} else if (cmd === 'whoami') {
+			return getCurrentUnixUser()
+		} else if (cmd === 'chmod') {
+			const expandedOptArg = bashStr(args[0])
+			args.shift()
+			const expandedFileArg = bashStr(args[0])
+			if(!expandedFileArg) {
+				return `chmod: missing operand after ‘${expandedOptArg}’`
+			}
+			const [abspath, folder, filename] = pathInfo(expandedFileArg)
+			const file = getFile(abspath)
+			if (!file) {
+				return `chmod: cannot access '${expandedFileArg}': No such file or directory`
+			}
+			if (expandedOptArg === '777') {
+				if(!file.perms) {
+					file.perms = '-rw-r--r--'
+				}
+				file.perms = `${file.type === 'd' ? 'd' : '-'}rwxrwxrwx`
+				return ''
+			}
+			m = expandedOptArg.match(new RegExp('(.*)?([\\+\\-])(.*)'))
+			if(m) {
+				const who = m[1] // go with a for now always WARNING CAN BE UNDEFINED
+				const isAdd = m[2] == '+'
+				const what = m[3] // go with X for now always
+				// console.log(`who=${who} isAdd=${isAdd} what=${what}`)
+				if(file.perms) {
+					file.perms = '-rw-r--r--'
+				}
+				const newperms = file.perms[0] +
+					file.perms[1] +
+					file.perms[2] +
+					(isAdd ? 'x' : '-') +
+					file.perms[4] +
+					file.perms[5] +
+					(isAdd ? 'x' : '-') +
+					file.perms[7] +
+					file.perms[8] +
+					(isAdd ? 'x' : '-')
+				file.perms = newperms
+				console.log(`matched exec regex and set file perms to newperms=${newperms} file.perms=${file.perms} add=${isAdd}`)
+				return ''
+			}
+			console.log("warning fallback fileperms unkonwn opt" + expandedOptArg)
+			// failed to parse perms set random default xd
+			file.perms = '-rw-r--r--'
+			file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
+			return ''
 		} else if (cmd === 'ldd') {
 			if(LDD[args[0]]) {
 				return LDD[args[0]].join('\n')
+			}
+		} else if (cmd === 'cat') {
+			const path = bashStr(args[0])
+			// good ol bash word split
+			const [abspath, folder, filename] = pathInfo(path)
+			console.log(path)
+			console.log([abspath, folder, filename])
+			const file = getFile(abspath)
+			console.log(fakeFiles)
+			console.log("file" + file)
+			if (!file) {
+				return `cat: ${path}: No such file or directory`	
+			}
+			if(file.type === 'd') {
+				return `cat: ${path}: Is a directory`
+			}
+			if(file.content) {
+				return file.content
 			}
 		} else if (cmd === 'printf') {
 			if (args.length === 0) {
@@ -789,13 +1213,49 @@ const fakeBash = (userinput) => {
 			})
 			return msg
 		} else if (cmd === 'ls') {
+			let argFolder = null
 			if(!args[0]) {
-				return
+				argFolder = '.'
 			}
-			const [abspath, folder, filename] = pathInfo(bashStr(args[0]))
+			let flagList = false
+			while (args[0]) {
+				if(args[0][0] === '-') {
+					args[0].split("").forEach((flag) => {
+						if(flag === 'l') {
+							flagList = true
+						}
+					})
+				}
+				if (!argFolder) {
+					argFolder = bashStr(args[0])
+				}
+				args.shift()
+			}
+			const [abspath, folder, filename] = pathInfo(argFolder)
 			const files = fakeFiles[abspath]
+			const printFile = (file, flagList) => {
+				let perms = '-rw-r--r--'
+				if(file.perms) {
+					perms = file.perms
+				}
+				const dSuffix = file.type === 'd' ? '/' : ''
+				if(flagList) {
+					return `${perms} pi pi Apr 30 10:10 ${file.name}${dSuffix}`
+				} else {
+					return file.name + dSuffix
+				}
+			}
 			if (files) {
-				return files.map((file) => file.name).sort().join('\n')
+				return files.map((file) => {
+					return printFile(file, flagList)
+				}).sort().join('\n')
+			} else if (isFile(abspath)) {
+				const file = getFile(abspath)
+				if(!file) {
+					console.log("wtf")
+					return 'bash error'
+				}
+				return printFile(file, flagList)
 			} else {
 				return `ls: cannot access '${abspath}': Permission denied`
 			}
@@ -848,7 +1308,7 @@ const fakeBash = (userinput) => {
 			// return "rm: remove write-protected regular fipytlehKilledon error"
 		} else if (cmd === 'ls') {
 			// we handle ls else where
-		} else if (!KNOWN_COMMANDS.includes(cmd)) {
+		} else if (!cmdInUnixPath(cmd)) {
 			return `bash: ${cmd}: command not found`
 		}
 		// this says invalid option on every command
@@ -1228,7 +1688,8 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args.slice(1).join(' ')}\n`);
 	} else if (cmd === 'quiz') {
 		if (process.env.ALLOW_QUIZ != '1' ) {
-			say('quiz off')
+			// say('quiz off')
+			say('quiz off because im too lazy to come out with more questions')
 			return
 		}
 		if (args.length > 0) {
