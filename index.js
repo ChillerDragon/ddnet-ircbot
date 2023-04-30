@@ -25,9 +25,10 @@ const loadQuiz = () => {
 	const rows = data.split('\n')
 
 	rows.forEach((row) => {
-		const cols = row.split(',')
+		if (row.startsWith('sep=')) { return }
+		const cols = row.split(' ANSWER: ')
 		const question = cols.shift()
-		const answer = cols.join(',')
+		const answer = cols.join(' ANSWER: ')
 		if(question) {
 			QUIZ[question] = answer
 		}
@@ -42,7 +43,8 @@ const startQuiz = () => {
 
 loadQuiz()
 
-// console.log(QUIZ)
+console.log(QUIZ)
+process.exit(1)
 
 
 const getServerIpsByPlayerName = async (searchName) => {

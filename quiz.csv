@@ -1,5 +1,6 @@
-sample question,.*\d.*
-strict question,\d
-meaning of life,42
-meaning of delimmer,^42$
-gime answer w commas,1,2
+sep=" ANSWER: "
+sample question ANSWER: .*\d.*
+strict question ANSWER: \d
+meaning of life ANSWER: 42
+meaning of delimmer ANSWER: ^42$
+gime answer w commas ANSWER: 1,2
