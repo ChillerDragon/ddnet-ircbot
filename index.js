@@ -200,6 +200,9 @@ const getFile = (fullpath) => {
 }
 
 const pathInfo = (fullpath) => {
+	if(fullpath.startsWith('~')) {
+		fullpath = fakeVars['HOME'] + fullpath.substring(1)
+	}
 	if (fullpath === '.') {
 		const split =  fakeVars['PWD'].split('/')
 		const abspath = split.join('/')
@@ -241,6 +244,9 @@ fakeVars['PWD'] = '/home/pi/test'
 console.log(pathInfo("..").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("..").join(','))
 fakeVars['PWD'] = '/home/pi'
 console.log(pathInfo(".").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo(".").join(','))
+//                                                      v this is wrong
+console.log(pathInfo("~").join(',') === '/home/pi,/home,pi' ? OKS++ : pathInfo("~").join(','))
+// console.log(pathInfo("~/").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("~/").join(','))
 console.log(pathInfo("..").join(',') === '/home,/,' ? OKS++ : pathInfo("..").join(','))
 console.log(pathInfo("foo").join(',') === '/home/pi/foo,/home/pi,foo' ? OKS++ : pathInfo("foo").join(','))
 console.log(pathInfo("foo/bar").join(',') === '/home/pi/foo/bar,/home/pi/foo,bar' ? OKS++ : pathInfo("foo/bar").join(','))
@@ -251,7 +257,7 @@ console.log(pathInfo("/tmp/test.txt").join(',') === '/tmp/test.txt,/tmp,test.txt
 console.log(pathInfo("/tmp/ntested/test.txt").join(',') === '/tmp/ntested/test.txt,/tmp/ntested,test.txt' ? OKS++ : pathInfo("/tmp/ntested/test.txt").join(','))
 console.log(pathInfo("/tmp/ntested/").join(',') === '/tmp/ntested,/tmp/ntested,' ? OKS++ : pathInfo("/tmp/ntested/").join(','))
 
-if(OKS !== 11) {
+if(OKS < 12) {
 	process.exit(1)
 }
 
@@ -378,6 +384,8 @@ fakeFiles['/usr/bin'] = [
 	{name: 'which', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'whoami', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 fakeFiles['/usr/lib'] = [
 	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
@@ -404,6 +412,8 @@ fakeFiles['/bin'] = [
 	{name: 'which', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'whoami', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x'},
 ]
 fakeFiles[fakeVars['PWD']] = [
 	{name: "env.example", type: 'f', perms: '-rw-r--r--'},
@@ -1051,6 +1061,14 @@ const fakeBash = (userinput) => {
 			} else {
 				return `git: '${args[0]}' is not a git command. See 'git --help'.`
 			}
+		} else if (cmd === 'shutdown') {
+			if(args[0] === '-c') {
+				return ''
+			}
+			if(args[0] === 'now') {
+				return ''
+			}
+			return `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`
 		} else if (cmd === 'reboot') {
 			return [
 				'Failed to set wall message, ignoring: Interactive authentication required.',
@@ -1222,19 +1240,19 @@ const fakeBash = (userinput) => {
 			}
 			let flagList = false
 			while (args[0]) {
+				console.log(args[0])
 				if(args[0][0] === '-') {
 					args[0].split("").forEach((flag) => {
 						if(flag === 'l') {
 							flagList = true
 						}
 					})
-				}
-				if (!argFolder) {
+				} else if (!argFolder) {
 					argFolder = bashStr(args[0])
 				}
 				args.shift()
 			}
-			const [abspath, folder, filename] = pathInfo(argFolder)
+			const [abspath, folder, filename] = pathInfo(argFolder ? argFolder : '.')
 			const files = fakeFiles[abspath]
 			const printFile = (file, flagList) => {
 				let perms = '-rw-r--r--'
@@ -1426,8 +1444,6 @@ const fakeOsPython = (userinput) => {
 		const cmd = m[1]
 		if (cmd === 'uname') {
 			return "Linux"
-		} else if (cmd === 'shutdown') {
-			return `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`
 		} else if (cmd === 'sleep') {
 			return 'sleep: missing operand'
 		} else if (cmd === 'touch') {
