@@ -392,6 +392,14 @@ const safeBash = (userinput) => {
 	]
 	let safe = false
 	safeToReadFiles.forEach((file) => {
+		['head', 'tail'].forEach((tool) => {
+			const argPattern = '(\\s+\\-n\\s*\\-?\\d+)?'
+			const toolPattern = new RegExp(`^${tool}${argPattern}\\s+${file}$`)
+			if (toolPattern.test(userinput)) {
+				safe = userinput
+				return
+			}
+		})
 		const catPattern = new RegExp(`^cat\\s+${file}$`)
 		if (catPattern.test(userinput)) {
 			safe = userinput
@@ -951,7 +959,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		console.log("res of safeBase(" +userinput+") = > " + safe)
 		if(!safe) {
 			const fake = fakeBash(userinput)
-			if (fake !== false) {
+			if (fake !== false && fake !== undefined) {
 				const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
 				let numStdout = 0
 				fake.toString().split('\n').forEach((line) => {
