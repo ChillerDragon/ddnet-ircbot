@@ -229,6 +229,23 @@ const isDir = (fullpath) => {
 const isFile = (fullpath) => {
 	return getPathType(fullpath) === 'f'
 }
+KNOWN_COMMANDS = [
+	"cat", "/usr/bin/cat",
+	"head", "/usr/bin/head",
+	"tail", "/usr/bin/tail",
+	"grep", "/usr/bin/grep",
+	"ls", "/usr/bin/ls",
+	"ldd", "/usr/bin/ldd"
+]
+LDD = {}
+LDD['/bin/bash'] = [
+	'linux-vdso.so.1 (0xbecea000)',
+	'/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so => /usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so (0xb6f0c000)',
+	'libtinfo.so.6 => /lib/arm-linux-gnueabihf/libtinfo.so.6 (0xb6ec3000)',
+	'libdl.so.2 => /lib/arm-linux-gnueabihf/libdl.so.2 (0xb6eaf000)',
+	'libc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0xb6d5b000)',
+	'/lib/ld-linux-armhf.so.3 (0xb6f21000)'
+]
 fakeFiles['/home'] = [
 	{name: 'pi', type: 'd'}
 ]
@@ -258,11 +275,22 @@ fakeFiles['/'] = [
 	{name: 'usr', type: 'd'},
 	{name: 'var', type: 'd'}
 ]
+fakeFiles['/bin'] = [
+	{name: 'head', type: 'f', content: '@@@   aLaLpppXXЊКК@@888PDDStd888PPtdQtdRtdЊКК00/lib64/ld-linux-x86-64.so.2@GNU  GNU'},
+	{name: 'tail', type: 'f', content: '_/TukM/bq& 7'},
+	{name: 'grep', type: 'f', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
+	{name: 'ls', type: 'f', content: '@@@55@@@Q3Q3ww%'},
+	{name: 'bash', type: 'f', content: '@m@@p#@pS@8'},
+	{name: 'zsh', type: 'f'},
+	{name: 'sh', type: 'f'},
+	{name: 'ldd', type: 'f'},
+	{name: 'cat', type: 'f', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'}
+]
 fakeFiles[fakeVars['PWD']] = [
 	{name: "env.example", type: 'f'},
 	{name: "hex_to_pack.py", type: 'f'},
 	{name: "index.js", type: 'f'},
-	{name: "LICENSE", type: 'f'},
+	{name: "LICENSE", type: 'f', content: 'MIT'},
 	{name: "node_modules", type: 'd'},
 	{name: "package.json", type: 'f'},
 	{name: "package-lock.json", type: 'f'},
@@ -358,9 +386,9 @@ const safeBash = (userinput) => {
 	if (["whoami", "whoami;"].includes(userinput)) {
 		return userinput
 	}
-	if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
-		return userinput
-	}
+	// if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
+	// 	return userinput
+	// }
 	if (userinput === 'uptime' || userinput === 'uptime;') {
 		return userinput
 	}
@@ -392,19 +420,21 @@ const safeBash = (userinput) => {
 	]
 	let safe = false
 	safeToReadFiles.forEach((file) => {
-		['head', 'tail'].forEach((tool) => {
+		;['head', 'tail', '/usr/bin/head', '/usr/bin/tail'].forEach((tool) => {
 			const argPattern = '(\\s+\\-n\\s*\\-?\\d+)?'
 			const toolPattern = new RegExp(`^${tool}${argPattern}\\s+${file}$`)
 			if (toolPattern.test(userinput)) {
 				safe = userinput
 				return
 			}
-		})
-		const catPattern = new RegExp(`^cat\\s+${file}$`)
-		if (catPattern.test(userinput)) {
-			safe = userinput
-			return
-		}
+		});
+		;['cat', '/usr/bin/cat'].forEach((tool) => {
+			const catPattern = new RegExp(`^${tool}\\s+${file}$`)
+			if (catPattern.test(userinput)) {
+				safe = userinput
+				return
+			}
+		});
 		const grep = 'e?grep(\\s+\\-[vFinl])?'
 		const grepPattern = new RegExp(`^cat\\s+${file}\\s+\\|\\s+${grep}\\s+[a-zA-Z0-9_]+$`)
 		if (grepPattern.test(userinput)) {
@@ -436,11 +466,11 @@ const fakeBash = (userinput) => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
 		return 'bash error\nbash error\nbash error'
 	}
-	if (["bash", "bash;", "bash -c bash"].includes(userinput)) {
+	if (["bash", "bash;", "bash -c bash", "/bin/bash", "/bin/sh"].includes(userinput)) {
 		fakeVars['PWD'] = '/home/pi'
 		fakeVars['SHELL'] = '/bin/bash'
 		return ''
-	} else if (["zsh", "zsh;", "bash -c zsh"].includes(userinput)) {
+	} else if (["zsh", "zsh;", "bash -c zsh", "/bin/zsh"].includes(userinput)) {
 		fakeVars['PWD'] = '/home/pi'
 		fakeVars['SHELL'] = '/bin/zsh'
 		return ''
@@ -604,6 +634,10 @@ const fakeBash = (userinput) => {
 			}
 			let msg = args.join(' ')
 			return bashStr(msg)
+		} else if (cmd === 'ldd') {
+			if(LDD[args[0]]) {
+				return LDD[args[0]].join('\n')
+			}
 		} else if (cmd === 'printf') {
 			if (args.length === 0) {
 				return 'printf: usage: printf [-v var] format [arguments]'
@@ -697,7 +731,7 @@ const fakeBash = (userinput) => {
 			// return "rm: remove write-protected regular fipytlehKilledon error"
 		} else if (cmd === 'ls') {
 			// we handle ls else where
-		} else {
+		} else if (!KNOWN_COMMANDS.includes(cmd)) {
 			return `bash: ${cmd}: command not found`
 		}
 		// this says invalid option on every command
