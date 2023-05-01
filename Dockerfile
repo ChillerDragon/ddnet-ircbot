@@ -12,6 +12,8 @@ RUN npm i
 
 COPY . .
 
+RUN npm run build || true
+
 RUN groupadd -g 1001 pi
 RUN useradd -u 1001 -g pi -ms /bin/bash pi
 
@@ -19,5 +21,5 @@ RUN chown -R 1001:1001 /home/pi
 
 USER 1001
 
-CMD ["node", "index.js"]
+CMD ["node", "dist/index.js"]
 

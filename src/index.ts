@@ -16,9 +16,9 @@ console.log(`* irc channel=${process.env.IRC_CHANNEL}`)
 console.log(`* mod ping=${process.env.MOD_PING}`)
 console.log('***')
 
-const QUIZ = {}
-let currentQuiz = null
-let currentQuizSolvers = []
+const QUIZ: {[key: string]: string} = {}
+let currentQuiz: any = null
+let currentQuizSolvers: string[] = []
 let quizzesPlayed = 0
 
 const loadQuiz = () => {
@@ -26,11 +26,11 @@ const loadQuiz = () => {
 	const data = fs.readFileSync(quizCsv, 'utf8');
 	const rows = data.split('\n')
 
-	rows.forEach((row) => {
+	rows.forEach((row: string) => {
 		if (row.startsWith('sep=')) { return }
 		const cols = row.split(' ANSWER: ')
 		const question = cols.shift()
-		const answer = cols.join(' ANSWER: ')
+		const answer: string = cols.join(' ANSWER: ')
 		if(question) {
 			QUIZ[question] = answer
 		}
@@ -87,7 +87,7 @@ const client = new irc.Client(process.env.IRC_SERVER, 'chillerbot', {
 	channels: [`#${process.env.IRC_CHANNEL}`],
 })
 
-const say = (msg) => {
+const say = (msg: string) => {
 	if (!msg) {
 		return
 	}
@@ -112,8 +112,8 @@ const endQuiz = () => {
 	currentQuizSolvers = []
 }
 
-const checkPingPongCmd = (cmd) => {
-	let res = false
+const checkPingPongCmd = (cmd: string): string | null => {
+	let res = null
 	try {
 		const data = fs.readFileSync('ping_pong.csv', 'utf8');
 		const rows = data.split('\n')
@@ -131,7 +131,7 @@ const checkPingPongCmd = (cmd) => {
 	return res;
 }
 
-const isPapaChiler = (from, isBridge, client) => {
+const isPapaChiler = (from: string, isBridge: boolean) => {
 	if (from !== 'ChillerDragon') {
 		say('only papa chiler can pinger.');
 		return false
@@ -143,8 +143,8 @@ const isPapaChiler = (from, isBridge, client) => {
 	return true
 }
 
-const messageQueue = []
-const fakeVars = {}
+const messageQueue: string[] = []
+const fakeVars: {[key: string]: string} = {}
 fakeVars['$'] = '24410'
 fakeVars['BASHPID'] = fakeVars['$']
 fakeVars['PPID'] = '24411'
@@ -155,16 +155,28 @@ fakeVars['HOME'] = '/home/pi'
 fakeVars['SHELL'] = '/bin/bash'
 fakeVars['USER'] = 'pi'
 fakeVars['PATH'] = '/home/pi/.cargo/bin:/home/pi/.nvm/versions/node/v18.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games'
+
+interface UnixFile {
+	name: string,
+	type: string,
+	perms: string,
+	content?: string,
+}
+
+interface UnixFileSystem {
+	[index: string]: UnixFile[]
+}
+
 /*
  * fakefiles
  * key: rel or abs path
  * val: [filenames]
  */
-const fakeFiles = {}
+const fakeFiles: UnixFileSystem = {}
 const getDiskUsage = () => {
 	return JSON.stringify(fakeFiles).length
 }
-const getPathType = (fullpath) => {
+const getPathType = (fullpath: string): string | null => {
 	const split = fullpath.split('/')
 	const filename = split.pop()
 	let path = split.join('/')
@@ -181,7 +193,7 @@ const getPathType = (fullpath) => {
 	return type
 }
 
-const getFile = (fullpath) => {
+const getFile = (fullpath: string): UnixFile | null => {
 	const split = fullpath.split('/')
 	const filename = split.pop()
 	let path = split.join('/')
@@ -199,7 +211,7 @@ const getFile = (fullpath) => {
 	return foundFile
 }
 
-const pathInfo = (fullpath) => {
+const pathInfo = (fullpath: string): [string, string, string] => {
 	if(fullpath.startsWith('~')) {
 		fullpath = fakeVars['HOME'] + fullpath.substring(1)
 	}
@@ -231,7 +243,7 @@ const pathInfo = (fullpath) => {
 	if (split.length > 0) {
 		filename = split.pop()
 	}
-	basepath = split.join('/')
+	const basepath = split.join('/')
 	let abspath = basepath
 	if(filename) {
 		abspath = `${basepath}/${filename}`
@@ -261,16 +273,16 @@ if(OKS < 12) {
 	process.exit(1)
 }
 
-const isDir = (fullpath) => {
+const isDir = (fullpath: string): boolean => {
 	if (fullpath === '/') {
 		return true
 	}
 	return getPathType(fullpath) === 'd'
 }
-const isFile = (fullpath) => {
+const isFile = (fullpath: string): boolean => {
 	return getPathType(fullpath) === 'f'
 }
-const isDirOrFile = (fullpath) => {
+const isDirOrFile = (fullpath: string): boolean => {
 	return ['f', 'd'].includes(getPathType(fullpath))
 }
 // KNOWN_COMMANDS = [
@@ -279,7 +291,6 @@ const isDirOrFile = (fullpath) => {
 // 	"tail", "/usr/bin/tail", "/bin/tail",
 // 	"grep", "/usr/bin/grep", "/bin/grep",
 // 	"ls", "/usr/bin/ls", "/bin/ls",
-// 	"ldd", "/usr/bin/ldd", "/bin/ldd",
 // 	"rm", "/usr/bin/rm", "/bin/rm",
 // 	"mkdir", "/usr/bin/mkdir", "/bin/mkdir",
 // 	"touch", "/usr/bin/touch", "/bin/touch",
@@ -288,7 +299,7 @@ const isDirOrFile = (fullpath) => {
 // 	"echo", "/usr/bin/echo", "/bin/echo",
 // 	"ps", "/usr/bin/ps", "/bin/ps",
 // ]
-const isFileHandleExecutable = (fileHandle) => {
+const isFileHandleExecutable = (fileHandle: UnixFile): boolean => {
 	if(!fileHandle) {
 		return false
 	}
@@ -297,9 +308,9 @@ const isFileHandleExecutable = (fileHandle) => {
 	}
 	return fileHandle.perms[9] === 'x'
 }
-const cmdInUnixPath = (cmd) => {
+const cmdInUnixPath = (cmd: string): boolean | string => {
 	// const executablesInPath = []
-	let match = false
+	let match: boolean | string = false
 	fakeVars['PATH'].split(':').forEach((path) => {
 		const files = fakeFiles[path] ? fakeFiles[path] : []
 		files.forEach((file) => {
@@ -313,17 +324,8 @@ const cmdInUnixPath = (cmd) => {
 	return match
 	// return executablesInPath.map((filehandle) => filehandle.name).includes(cmd)
 }
-LDD = {}
-LDD['/bin/bash'] = [
-	'linux-vdso.so.1 (0xbecea000)',
-	'/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so => /usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so (0xb6f0c000)',
-	'libtinfo.so.6 => /lib/arm-linux-gnueabihf/libtinfo.so.6 (0xb6ec3000)',
-	'libdl.so.2 => /lib/arm-linux-gnueabihf/libdl.so.2 (0xb6eaf000)',
-	'libc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0xb6d5b000)',
-	'/lib/ld-linux-armhf.so.3 (0xb6f21000)'
-]
 fakeFiles['/home'] = [
-	{name: 'pi', type: 'd'}
+	{name: 'pi', type: 'd', perms: 'drwxr-xr-x'},
 ]
 fakeFiles['/tmp'] = [
 	{name: 'systemd-private-76c28618eb3e4a41b13344eb135fa6d1-ModemManager.service-EuLjZi', type: 'd', perms: 'drwxr-xr-x'},
@@ -374,7 +376,6 @@ fakeFiles['/usr/bin'] = [
 	{name: 'grep', type: 'f', perms: '-rwxr-xr-x', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
 	{name: 'ls', type: 'f', perms: '-rwxr-xr-x', content: '@@@55@@@Q3Q3ww%'},
 	{name: 'bash', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
-	{name: 'ldd', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'cat', type: 'f', perms: '-rwxr-xr-x', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
 	{name: 'zsh', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'sh', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
@@ -403,7 +404,6 @@ fakeFiles['/bin'] = [
 	{name: 'grep', type: 'f', perms: '-rwxr-xr-x', content: '@@@x5x5@@@!!YY?OOY888PDDStd888PPtd'},
 	{name: 'ls', type: 'f', perms: '-rwxr-xr-x', content: '@@@55@@@Q3Q3ww%'},
 	{name: 'bash', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
-	{name: 'ldd', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'cat', type: 'f', perms: '-rwxr-xr-x', content: '@@@88   q:q:```zx@|@888PDDStd888PPtdmmmQtdRtdz/lib64/ld-linux-x86-64.so.2@GNU   GNU}#V8G<^wuGNU9a9a ELQ+/'},
 	{name: 'zsh', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'sh', type: 'f', perms: '-rwxr-xr-x'},
@@ -468,20 +468,20 @@ fakeFiles[`${fakeVars['PWD']}/node_modules/nan`] = [
  * for sure a bit more if not twice as much
  */
 const MAX_DISK_SPACE = getDiskUsage() + 500
-const getMaxDiskSpace = (partition) => {
+const getMaxDiskSpace = (partition: string): number => {
 	if (partition === '/') {
 		return MAX_DISK_SPACE
 	}
 	return 0
 }
-const getDiskError = () => {
+const getDiskError = (): string | null => {
 	const usage = getDiskUsage()
 	if (usage >= MAX_DISK_SPACE) {
 		return 'No Space Left on Device'
 	}
 	return null
 }
-const unixDelFile = (path) => {
+const unixDelFile = (path: string): boolean => {
 	const [abspath, folder, filename] = pathInfo(path)
 	if(isFile(abspath) && fakeFiles[folder]) {
 		if (fakeFiles[folder].map((file) => file.name).includes(filename)) {
@@ -537,7 +537,7 @@ const appendToFileContent = (path, text) => {
 
 	returns null or disk error string
 */
-const createFileWithContent = (path, text) => {
+const createFileWithContent = (path: string, text: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
 	const fileHandle = getFile(abspath)
 	if (fileHandle) {
@@ -568,7 +568,7 @@ const createFileWithContent = (path, text) => {
 
 	returns null or disk error string
 */
-const CreateFolder = (path) => {
+const CreateFolder = (path: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
 	const fileHandle = getFile(abspath)
 	if (fileHandle) {
@@ -596,75 +596,7 @@ const CreateFolder = (path) => {
 	return diskError
 }
 
-const safeBash = (userinput) => {
-	if (userinput === 'uname' || userinput === 'uname;' || userinput === 'uname -r') {
-		return userinput
-	}
-	if (userinput === 'id' || userinput === 'id;') {
-		return userinput
-	}
-	// if (["echo $SHELL", "echo $SHELL;", "echo '$SHELL'", 'echo "$SHELL"', "echo '$SHELL';", 'echo "$SHELL";' ].includes(userinput)) {
-	// 	return userinput
-	// }
-	if (userinput === 'uptime' || userinput === 'uptime;') {
-		return userinput
-	}
-	if (userinput === 'neofetch' || userinput === 'neofetch;') {
-		return userinput
-	}
-	if (["ls /proc/self", "ls /proc/self;"].includes(userinput)) {
-		return userinput
-	}
-	// if (["ls", "ls .", "ls;", "ls .;"].includes(userinput)) {
-	// 	return userinput
-	// }
-	const safeToReadFiles = [
-		'/proc/stat',
-		'/proc/self/maps',
-		'/etc/os-release',
-		'LICENSE',
-		'ping_pong.csv',
-		'hex_to_pack.py',
-		'index.js',
-		'package.json',
-		'package-lock.json',
-		'README.md',
-		'tags',
-		'env.example'
-	]
-	let safe = false
-	safeToReadFiles.forEach((file) => {
-		;['head', 'tail', '/usr/bin/head', '/usr/bin/tail'].forEach((tool) => {
-			const argPattern = '(\\s+\\-n\\s*\\-?\\d+)?'
-			const toolPattern = new RegExp(`^${tool}${argPattern}\\s+${file}$`)
-			if (toolPattern.test(userinput)) {
-				safe = userinput
-				return
-			}
-		});
-		;['cat', '/usr/bin/cat'].forEach((tool) => {
-			const catPattern = new RegExp(`^${tool}\\s+${file}$`)
-			if (catPattern.test(userinput)) {
-				safe = userinput
-				return
-			}
-		});
-		const grep = 'e?grep(\\s+\\-[vFinl])?'
-		const grepPattern = new RegExp(`^cat\\s+${file}\\s+\\|\\s+${grep}\\s+[a-zA-Z0-9_]+$`)
-		if (grepPattern.test(userinput)) {
-			safe = userinput
-			return
-		}
-		const grepPatternGoodStyle = new RegExp(`^${grep}\\s+[a-zA-Z0-9_]+\\s+${file}$`)
-		if (grepPatternGoodStyle.test(userinput)) {
-			safe = userinput
-			return
-		}
-	})
-	return safe
-}
-
-const bashStr = (string) => {
+const bashStr = (string: string): string => {
 	if(!string) {
 		return ''
 	}
@@ -679,7 +611,7 @@ const bashStr = (string) => {
 	// simple globbing only 1 star and only in the begging
 	if(string.startsWith('*')) {
 		const files = fakeFiles[fakeVars['PWD']] ? fakeFiles[fakeVars['PWD']] : []
-		const matches = []
+		const matches: string[] = []
 		files.forEach((file) => {
 			if (file.name.endsWith(string.substring(1))) {
 				matches.push(file.name)
@@ -690,7 +622,7 @@ const bashStr = (string) => {
 		}
 	} else if (string.endsWith('*')) {
 		const files = fakeFiles[fakeVars['PWD']] ? fakeFiles[fakeVars['PWD']] : []
-		const matches = []
+		const matches: string[] = []
 		files.forEach((file) => {
 			if (file.name.startsWith(string.substring(0,string.length - 1))) {
 				matches.push(file.name)
@@ -703,7 +635,7 @@ const bashStr = (string) => {
 	return string
 }
 
-const fakeBash = (userinput) => {
+const fakeBash = (userinput: string): string => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
 		return 'bash error\nbash error\nbash error'
 	}
@@ -892,7 +824,8 @@ const fakeBash = (userinput) => {
 			if(pid === getCurrentPid() || pid === getParentPid()) {
 				return 'bash error'
 			}
-			if(pid < 20000) {
+			const pidInt = parseInt(pid, 10)
+			if(pidInt < 20000) {
 				return `-bash: kill: (${pid}) - Operation not permitted`
 			}
 			return ''
@@ -990,7 +923,7 @@ const fakeBash = (userinput) => {
 							'fatal: failed to write object fatal: unpack-objects failed',
 							'filename : No space left on device',
 							'fatal: failed to write object fatal: unpack-objects failed'
-						]
+						].join('\n')
 					}
 					return [
 						`Cloning into '${basename}'...`,
@@ -1114,10 +1047,6 @@ const fakeBash = (userinput) => {
 			file.perms = '-rw-r--r--'
 			file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
 			return ''
-		} else if (cmd === 'ldd') {
-			if(LDD[args[0]]) {
-				return LDD[args[0]].join('\n')
-			}
 		} else if (cmd === 'cat') {
 			const path = bashStr(args[0])
 			// good ol bash word split
@@ -1204,7 +1133,7 @@ const fakeBash = (userinput) => {
 			}
 			const [abspath, folder, filename] = pathInfo(argFolder ? argFolder : '.')
 			const files = fakeFiles[abspath]
-			const printFile = (file, flagList) => {
+			const printFile = (file: UnixFile, flagList: boolean) => {
 				let perms = '-rw-r--r--'
 				if(file.perms) {
 					perms = file.perms
@@ -1290,12 +1219,12 @@ const fakeBash = (userinput) => {
 	return false
 }
 
-client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) => {
+client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from: string, message: string) => {
 	let isBridge = false
 	if (from === 'bridge') {
 		const slibbers = message.split('>')
-		from = slibbers[0].substr(1)
-		message = slibbers.slice(1).join('>').substr(1)
+		from = slibbers[0].substring(1)
+		message = slibbers.slice(1).join('>').substring(1)
 		isBridge = true
 	}
 	console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
@@ -1311,14 +1240,14 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		return
 	}
 	// delete doubled spaces
-	// const words = message.substr(1).split(' ').filter((a) => a !== '') 
-	const words = message.substr(1).split(' ') // keep double spaces
+	// const words = message.substring(1).split(' ').filter((a) => a !== '') 
+	const words = message.substring(1).split(' ') // keep double spaces
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
 		say(`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc)`);
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
-		if(!isPapaChiler(from, isBridge, client)) {
+		if(!isPapaChiler(from, isBridge)) {
 			return
 		}
 		const helpTxt = await sendHelpToChiler()
@@ -1369,12 +1298,12 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data) => {
-			data.toString().split('\n').forEach((line) => {
+			data.toString().split('\n').forEach((line: string) => {
 				messageQueue.push(line)
 			})
 		});
 	} else if (cmd === 'add_ping_pong') {
-		if(!isPapaChiler(from, isBridge, client)) {
+		if(!isPapaChiler(from, isBridge)) {
 			return
 		}
 		if (args.length < 2) {
@@ -1437,13 +1366,13 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from, message) =
 		say("do '!quiz solve' to check the answer")
 	} else {
 		const pong = checkPingPongCmd(cmd)
-		if(pong) {
+		if(pong !== null) {
 			say(pong)
 		}
 	}
 })
 
-client.addListener('error', (message) => {
+client.addListener('error', (message: string) => {
 	console.log('error: ', message)
 })
 
@@ -1452,7 +1381,9 @@ const printQueue = () => {
 		return
 	}
 	console.log(`print queue ${messageQueue.length} items left`)
-	say(messageQueue.shift())
+	const msg = messageQueue.shift()
+	if(msg)
+		say(msg)
 }
 
 setInterval(printQueue, 2000)

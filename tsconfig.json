@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Node 18",
+    "compilerOptions": {
+        "outDir": "dist",
+        "strict": true,
+        "lib": ["ES2022"]
+    },
+    "include": [
+        "./src/**/*.ts",
+        "./src/**/*.tsx"
+    ]
+}
