@@ -11,7 +11,8 @@ interface UnixFileSystem {
 
 interface BashState {
     fs: UnixFileSystem,
-    vars: {[key: string]: string}
+    vars: {[key: string]: string},
+    tmpVars: {[key: string]: string}
 }
 
 interface BashResult {
@@ -20,9 +21,14 @@ interface BashResult {
     exitCode: number
 }
 
-const glbBs: BashState = {
+export const glbBs: BashState = {
     fs: {},
-    vars: {}
+    vars: {},
+    /*
+        scoped variables
+        in subshells, files or functions
+    */
+    tmpVars: {}
 }
 
 glbBs.vars['?'] = '0'
@@ -75,7 +81,7 @@ const getFile = (fullpath: string): UnixFile | null => {
 	return foundFile
 }
 
-const pathInfo = (fullpath: string): [string, string, string | null] => {
+export const pathInfo = (fullpath: string): [string, string, string | null] => {
 	if(fullpath.startsWith('~')) {
 		fullpath = glbBs.vars['HOME'] + fullpath.substring(1)
 	}
@@ -106,6 +112,9 @@ const pathInfo = (fullpath: string): [string, string, string | null] => {
 	let filename = null
 	if (split.length > 0) {
 		filename = split.pop()
+        if(!filename) {
+            filename = null
+        }
 	}
 	const basepath = split.join('/')
 	let abspath = basepath
@@ -113,28 +122,6 @@ const pathInfo = (fullpath: string): [string, string, string | null] => {
 		abspath = `${basepath}/${filename}`
 	}
 	return [abspath, basepath, filename]
-}
-
-let OKS = 0
-glbBs.vars['PWD'] = '/home/pi/test'
-console.log(pathInfo("..").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("..").join(','))
-glbBs.vars['PWD'] = '/home/pi'
-console.log(pathInfo(".").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo(".").join(','))
-//                                                      v this is wrong
-console.log(pathInfo("~").join(',') === '/home/pi,/home,pi' ? OKS++ : pathInfo("~").join(','))
-// console.log(pathInfo("~/").join(',') === '/home/pi,/home,' ? OKS++ : pathInfo("~/").join(','))
-console.log(pathInfo("..").join(',') === '/home,/,' ? OKS++ : pathInfo("..").join(','))
-console.log(pathInfo("foo").join(',') === '/home/pi/foo,/home/pi,foo' ? OKS++ : pathInfo("foo").join(','))
-console.log(pathInfo("foo/bar").join(',') === '/home/pi/foo/bar,/home/pi/foo,bar' ? OKS++ : pathInfo("foo/bar").join(','))
-console.log(pathInfo("foo/bar/baz.txt").join(',') === '/home/pi/foo/bar/baz.txt,/home/pi/foo/bar,baz.txt' ? OKS++ : pathInfo("foo/bar/baz.txt").join(','))
-console.log(pathInfo("/").join(',') === '/,/,' ? OKS++ : pathInfo("/").join(','))
-console.log(pathInfo("/tmp").join(',') === '/tmp,,tmp' ? OKS++ : pathInfo("/tmp").join(','))
-console.log(pathInfo("/tmp/test.txt").join(',') === '/tmp/test.txt,/tmp,test.txt' ? OKS++ : pathInfo("/tmp/test.txt").join(','))
-console.log(pathInfo("/tmp/ntested/test.txt").join(',') === '/tmp/ntested/test.txt,/tmp/ntested,test.txt' ? OKS++ : pathInfo("/tmp/ntested/test.txt").join(','))
-console.log(pathInfo("/tmp/ntested/").join(',') === '/tmp/ntested,/tmp/ntested,' ? OKS++ : pathInfo("/tmp/ntested/").join(','))
-
-if(OKS < 12) {
-	process.exit(1)
 }
 
 const isDir = (fullpath: string): boolean => {
@@ -147,7 +134,8 @@ const isFile = (fullpath: string): boolean => {
 	return getPathType(fullpath) === 'f'
 }
 const isDirOrFile = (fullpath: string): boolean => {
-	return ['f', 'd'].includes(getPathType(fullpath))
+    let path = getPathType(fullpath)
+	return ['f', 'd'].includes(path ? path : '')
 }
 // KNOWN_COMMANDS = [
 // 	"cat", "/usr/bin/cat", "/bin/cat",
@@ -251,6 +239,7 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 glbBs.fs['/usr/lib'] = [
 	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
@@ -278,6 +267,7 @@ glbBs.fs['/bin'] = [
 	{name: 'chmod', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x'},
 ]
 glbBs.fs[glbBs.vars['PWD']] = [
 	{name: "env.example", type: 'f', perms: '-rw-r--r--'},
@@ -347,6 +337,9 @@ const getDiskError = (): string | null => {
 }
 const unixDelFile = (path: string): boolean => {
 	const [abspath, folder, filename] = pathInfo(path)
+    if(!filename) {
+        return false
+    }
 	if(isFile(abspath) && glbBs.fs[folder]) {
 		if (glbBs.fs[folder].map((file) => file.name).includes(filename)) {
 			const i = glbBs.fs[folder].map((file) => file.name).indexOf(filename)
@@ -376,7 +369,7 @@ const getCurrentShellShort = () => {
 
 	returns null or disk error string
 */
-const appendToFileContent = (path, text) => {
+const appendToFileContent = (path: string, text: string) => {
 	const [abspath, folder, filename] = pathInfo(path)
 	const fileHandle = getFile(abspath)
 	if (!fileHandle) {
@@ -403,6 +396,10 @@ const appendToFileContent = (path, text) => {
 */
 const createFileWithContent = (path: string, text: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
+    if(!filename) {
+        console.log(`error failed to get filename path=${path}`)
+        return null
+    }
 	const fileHandle = getFile(abspath)
 	if (fileHandle) {
 		return null
@@ -434,6 +431,10 @@ const createFileWithContent = (path: string, text: string): string | null => {
 */
 const CreateFolder = (path: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
+    if(!filename) {
+        console.log(`error failed to get filename path=${path}`)
+        return null
+    }
 	const fileHandle = getFile(abspath)
 	if (fileHandle) {
 		console.log(`warning folder already exists=${abspath}`)
@@ -499,7 +500,7 @@ const bashStr = (string: string): string => {
 	return string
 }
 
-const fakeBash = (userinput: string): string => {
+export const fakeBash = (userinput: string): string => {
     const { stdout, stderr, exitCode } = evalBash(userinput)
     glbBs.vars['?'] = exitCode.toString()
     // TODO: can we do something better here
@@ -611,7 +612,7 @@ const evalBash = (userinput: string): BashResult => {
 		if (ioError === null) {
 			return { stdout: '', stderr: '', exitCode: 0 }
 		}
-		return { stdout: '', stderr: `mkdir: cannot create file ‘${path}’: ${ioError}`;, exitCode: 1 /* TODO made up */ }
+		return { stdout: '', stderr: `mkdir: cannot create file ‘${path}’: ${ioError}`, exitCode: 1 /* TODO made up */ }
 	}
 	// prefer quoted
 	m = userinput.match(/^([a-zA-Z0-9_\-]+)=["']([a-zA-Z0-9\s\/\.\_\-\s\$]+)["']/)
@@ -831,6 +832,8 @@ const evalBash = (userinput: string): BashResult => {
 				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			return { stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 }
+		} else if (cmd === 'dmesg') {
+            return { stdout: '', stderr: 'dmesg: read kernel buffer failed: Operation not permitted', exitCode: 1 /* verified */ }
 		} else if (cmd === 'reboot') {
 			const out = [
 				'Failed to set wall message, ignoring: Interactive authentication required.',
@@ -1103,5 +1106,3 @@ const evalBash = (userinput: string): BashResult => {
 	}
 	return { stdout: '', stderr: 'unsafe bash', exitCode: 1 }
 }
-
-export default fakeBash

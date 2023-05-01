@@ -5,7 +5,7 @@ const { Z_PARTIAL_FLUSH } = require('zlib')
 const spawn = require('child_process').spawn
 require('dotenv').config()
 
-import fakeBash from './bash'
+import { fakeBash } from './bash/bash'
 
 const interfaces = networkInterfaces()
 const eth0 = interfaces.eth0 ? interfaces.eth0.filter((a) => a.family === 'IPv4')[0].address : ''

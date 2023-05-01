@@ -34,3 +34,9 @@ docker logs -f ddnet_irc
 # to stop
 docker kill ddnet_irc
 ```
+
+## test
+
+```
+npx ts-node src/test_bash.ts
+```
