@@ -14,11 +14,18 @@ interface BashState {
     vars: {[key: string]: string}
 }
 
+interface BashResult {
+    stdout: string,
+    stderr: string,
+    exitCode: number
+}
+
 const glbBs: BashState = {
     fs: {},
     vars: {}
 }
 
+glbBs.vars['?'] = '0'
 glbBs.vars['$'] = '24410'
 glbBs.vars['BASHPID'] = glbBs.vars['$']
 glbBs.vars['PPID'] = '24411'
@@ -165,9 +172,9 @@ const isFileHandleExecutable = (fileHandle: UnixFile): boolean => {
 	}
 	return fileHandle.perms[9] === 'x'
 }
-const cmdInUnixPath = (cmd: string): boolean | string => {
+const cmdInUnixPath = (cmd: string): null | string => {
 	// const executablesInPath = []
-	let match: boolean | string = false
+	let match: null | string = null
 	glbBs.vars['PATH'].split(':').forEach((path) => {
 		const files = glbBs.fs[path] ? glbBs.fs[path] : []
 		files.forEach((file) => {
@@ -493,20 +500,28 @@ const bashStr = (string: string): string => {
 }
 
 const fakeBash = (userinput: string): string => {
+    const { stdout, stderr, exitCode } = evalBash(userinput)
+    glbBs.vars['?'] = exitCode.toString()
+    // TODO: can we do something better here
+    //       to support mixed order stdout and stderr
+    return stdout + stderr
+}
+
+const evalBash = (userinput: string): BashResult => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
-		return 'bash error\nbash error\nbash error'
+		return { stdout: 'bash error\nbash error\nbash error', stderr: '', exitCode: 0 }
 	}
 	if (["bash", "bash;", "bash -c bash", "/bin/bash", "/bin/sh"].includes(userinput)) {
 		glbBs.vars['PWD'] = '/home/pi'
 		glbBs.vars['SHELL'] = '/bin/bash'
-		return ''
+		return { stdout: '', stderr: '', exitCode: 0 }
 	} else if (["zsh", "zsh;", "bash -c zsh", "/bin/zsh"].includes(userinput)) {
 		glbBs.vars['PWD'] = '/home/pi'
 		glbBs.vars['SHELL'] = '/bin/zsh'
-		return ''
+		return { stdout: '', stderr: '', exitCode: 0 }
 	} else if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
 		glbBs.fs[glbBs.vars['PWD']] = []
-		return ''
+		return { stdout: '', stderr: '', exitCode: 0 }
 	// } else if (["ls", "ls .", "ls;", "ls .;", "ls *", "ls *;"].includes(userinput)) {
 	// 	// let files = [
 	// 	// 	"env.example",
@@ -532,7 +547,7 @@ const fakeBash = (userinput: string): string => {
 	// 		return `ls: Permission denied`
 	// 	}
 	} else if (["pwd", "pwd;"].includes(userinput)) {
-		return glbBs.vars['PWD'];
+		return { stdout: glbBs.vars['PWD'], stderr: '', exitCode: 0 }
 	} else if (["env", "env;"].includes(userinput)) {
 		const env = [
 				`SHELL=${glbBs.vars['SHELL']}`,
@@ -562,7 +577,8 @@ const fakeBash = (userinput: string): string => {
 				'TEXTDOMAIN=Linux-PAM',
 				'_=/usr/bin/env'
 		]
-		return env.join('\n')
+		const out = env.join('\n')
+        return { stdout: out, stderr: '', exitCode: 0 }
 	}
 	let m = userinput.match(/touch\s+([a-zA-Z0-9/\.]+)/)
 	if(m) {
@@ -572,16 +588,16 @@ const fakeBash = (userinput: string): string => {
 			// touch just pokes the file
 			// if we intoduce dates we should update last modified
 			// here
-			return ''
+			return { stdout: '', stderr: '', exitCode: 0 }
 		}
 		if(!isDir(folder)) {
-			return `touch: cannot touch '${path}': No such file or directory`
+			return { stdout: '', stderr: `touch: cannot touch '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ }
 		}
 		const ioError = createFileWithContent(abspath, '')
 		if(ioError === null) {
-			return ''
+			return { stdout: '', stderr: '', exitCode: 0 }
 		}
-		return ioError
+		return { stdout: '', stderr: ioError, exitCode: 1 }
 	}
 	m = userinput.match(/mkdir\s+([a-zA-Z0-9/\.]+)/)
 	if(m) {
@@ -589,13 +605,13 @@ const fakeBash = (userinput: string): string => {
 		const [abspath, folder, filename] = pathInfo(path)
 		const realpath = `${folder}/${filename}`
 		if(getPathType(realpath) !== null) {
-			return `mkdir: cannot create directory ‘${path}’: File exists`
+			return { stdout: '', stderr: `mkdir: cannot create directory ‘${path}’: File exists`, exitCode: 1 /* TODO made up */ }
 		}
 		const ioError = CreateFolder(abspath)
 		if (ioError === null) {
-			return ''
+			return { stdout: '', stderr: '', exitCode: 0 }
 		}
-		return `mkdir: cannot create file ‘${path}’: ${ioError}`;
+		return { stdout: '', stderr: `mkdir: cannot create file ‘${path}’: ${ioError}`;, exitCode: 1 /* TODO made up */ }
 	}
 	// prefer quoted
 	m = userinput.match(/^([a-zA-Z0-9_\-]+)=["']([a-zA-Z0-9\s\/\.\_\-\s\$]+)["']/)
@@ -607,7 +623,7 @@ const fakeBash = (userinput: string): string => {
 		const variable = m[1]
 		const value = m[2]
 		glbBs.vars[variable] = bashStr(value)
-		return ''
+		return { stdout: '', stderr: '', exitCode: 0 }
 	}
 	m = userinput.match(/^([a-zA-Z0-9_\-]+)\s+(.*)/)
 	if(!m) {
@@ -618,32 +634,36 @@ const fakeBash = (userinput: string): string => {
 		let args = m[2] ? m[2].split(' ') : []
 		console.log(args)
 		if (cmd === 'uname' && args[0] === '-a') {
-			return 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux'
+			return { stdout: 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux', stderr: '', exitCode: 0 }
 		} else if (cmd === 'uname' && args[0] === '-r') {
-			return '5.10.103-v7l+'
+			return { stdout: '5.10.103-v7l+', stderr: '', exitCode: 0 }
 		} else if (cmd === 'sudo' || cmd === '/usr/bin/sudo') {
-			return 'sudo: a password is required'
+			return { stdout: 'sudo: a password is required', stderr: '', exitCode: 0 }
 		} else if (cmd === 'apt' || cmd === '/usr/bin/apt') {
-			return [
-				"E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)",
-				"E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?"
-			].join('\n')
+            return {
+                stdout: [
+                    "E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)",
+                    "E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?"
+                ].join('\n'),
+                stderr: '',
+                exitCode: 100 // verified
+            }
 		} else if (cmd === 'cd') {
 			if (args[0] === '.') {
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			if (args.length === 0) {
 				glbBs.vars['PWD'] = '/home/pi'
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			if (args[0][0] == '-') {
-				return `${cmd}: invalid option -- '${args[0]}'`
+				return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ }
 			}
 			let path = bashStr(args[0])
 			if(/\./.test(path) && path !== '..') {
 				// TODO: support ../ and ./ and foo/../../bar paths
 				console.log('rel path not supportede')
-				return `-bash: cd: ${path}: Permission denied`
+				return { stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ }
 			}
 			const [abspath, folder, filename] = pathInfo(path)
 			if (isDir(abspath)) {
@@ -651,20 +671,20 @@ const fakeBash = (userinput: string): string => {
 					!abspath.startsWith('/home/pi/') &&
 					!['/', '/tmp', '/home/pi', '/home'].includes(abspath)) {
 					console.log(`illegal abs path '${abspath}'`)
-					return `-bash: cd: ${path}: Permission denied`
+					return { stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ }
 				}
 				glbBs.vars['PWD'] = abspath
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			} else if (isFile(abspath)) {
-				return `-bash: cd: ${path}: Not a directory`
+				return { stdout: '', stderr: `-bash: cd: ${path}: Not a directory`, exitCode: 1 /* TODO made up */ }
 			} else if (isDir(folder)) {
-				return `-bash: cd: ${path}: No such file or directory`
+				return { stdout: '', stderr: `-bash: cd: ${path}: No such file or directory`, exitCode: 1 /* TODO made up */ }
 			}
 			// console.log(`fallback because abspath=${abspath} dir=${isDir(abspath)}`)
-			return `-bash: cd: ${args[0]}: Permission denied`
+			return { stdout: '', stderr: `-bash: cd: ${args[0]}: Permission denied`, exitCode: 1 /* TODO made up */ }
 		} else if (cmd === 'kill') {
 			if (args.length === 0) {
-				return 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]'
+				return { stdout: 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', stderr: '', exitCode: 0 }
 			}
 			if (args[0] === '-9') {
 				args.shift()
@@ -675,17 +695,17 @@ const fakeBash = (userinput: string): string => {
 				killAll = true
 			}
 			if(killAll) {
-				return 'bash error'
+				return { stdout: 'bash error', stderr: '', exitCode: 0 }
 			}
 			const pid = bashStr(args[0])
 			if(pid === getCurrentPid() || pid === getParentPid()) {
-				return 'bash error'
+				return { stdout: 'bash error', stderr: '', exitCode: 0 }
 			}
 			const pidInt = parseInt(pid, 10)
 			if(pidInt < 20000) {
-				return `-bash: kill: (${pid}) - Operation not permitted`
+				return { stdout: '', stderr: `-bash: kill: (${pid}) - Operation not permitted`, exitCode: 1 /* TODO made up */ }
 			}
-			return ''
+			return { stdout: '', stderr: '', exitCode: 0 }
 		} else if (cmd === 'echo') {
 			if (args[0] === '-n' || args[0] === '-e') {
 				args.shift()
@@ -705,30 +725,30 @@ const fakeBash = (userinput: string): string => {
 				console.log(outfile)
 				// null random urandom zero etc
 				if(outfile.startsWith('/dev/')) {
-					return ''
+					return { stdout: '', stderr: '', exitCode: 0 }
 				}
 				const [abspath, _folder, _filename] = pathInfo(outfile)
 				const outfileHandle = getFile(abspath)
 				if(!outfileHandle) {
 					const ioError = createFileWithContent(abspath, text)
 					if(ioError === null) {
-						return ''
+						return { stdout: '', stderr: '', exitCode: 0 }
 					}
-					return ioError
+					return { stdout: '', stderr: ioError, exitCode: 1 }
 				}
 				if(outfileHandle.type === 'd') {
-					return `-bash: ${outfile}: Is a directory`
+					return { stdout: '', stderr: `-bash: ${outfile}: Is a directory`, exitCode: 1 /* TODO made up */ }
 				}
 				const ioError = appendToFileContent(abspath, text)
 				if(ioError === null) {
-					return ''
+					return { stdout: '', stderr: '', exitCode: 0 }
 				}
-				return ioError
+				return { stdout: '', stderr: ioError, exitCode: 1 }
 			} else {
 				console.log(`redirect regex did not match inout=${msg}`)
 				console.log(`expanded=${expandedArgs} regex=${redirectRegex.source}`)
 			}
-			return expandedArgs
+			return { stdout: expandedArgs, stderr: '', exitCode: 0 }
 		} else if (cmd === 'git') {
 			const helptxt = [
 				'usage: git [--version] [--help] [-C <path>] [-c <name>=<value>]',
@@ -738,7 +758,7 @@ const fakeBash = (userinput: string): string => {
 				'	<command> [<args>]'
 			].join('\n')
 			if(args.length === 0) {
-				return helptxt
+			    return { stdout: helptxt, stderr: '', exitCode: 1 /* verified */ }
 			}
 			if(['--recursive', '-v', '--verbose', '--force', '-f', '--no-pager', '--bare', '--paginate'].includes(args[0])) {
 				args.shift()
@@ -749,7 +769,7 @@ const fakeBash = (userinput: string): string => {
 					args.shift()
 				}
 				if(args[0][0] === '-') {
-					return `error: unknown option \`${args[0]}'\n${helptxt}`
+					return { stdout: '', stderr: `error: unknown option \`${args[0]}'\n${helptxt}`, exitCode: 1 /* TODO made up */ }
 				}
 				const url = args[0]
 				// https://github.com/foo/bar
@@ -761,7 +781,7 @@ const fakeBash = (userinput: string): string => {
 					const basename = folders[folders.length - 1]
 					const [abspath, folder, filename] = pathInfo(basename)
 					if(isDirOrFile(abspath)) {
-						return `fatal: destination path '${basename}' already exists and is not an empty directory.`
+						return { stdout: '', stderr: `fatal: destination path '${basename}' already exists and is not an empty directory.`, exitCode: 1 /* TODO made up */ }
 					}
 					let ioError = CreateFolder(basename)
 					if(ioError === null) {
@@ -773,7 +793,7 @@ const fakeBash = (userinput: string): string => {
 					if(ioError === null) { ioError = CreateFolder(`${basename}/.git`); }
 					if(ioError === null) { ioError = CreateFolder(`${basename}/.gitignore`); }
 					if (ioError !== null) {
-						return [
+						const out = [
 							`Cloning into '${basename}'...`,
 							'remote: Enumerating objects: 2483, done.',
 							'remote: Total 6 (delta 0), reused 0 (delta 0) error: unable to create temporary sha1 filename : No space left on device',
@@ -781,8 +801,9 @@ const fakeBash = (userinput: string): string => {
 							'filename : No space left on device',
 							'fatal: failed to write object fatal: unpack-objects failed'
 						].join('\n')
+                        return { stdout: '', stderr: out, exitCode: 1 }
 					}
-					return [
+					const out = [
 						`Cloning into '${basename}'...`,
 						'remote: Enumerating objects: 2483, done.',
 						'remote: Counting objects: 100% (157/157), done.',
@@ -791,90 +812,96 @@ const fakeBash = (userinput: string): string => {
 						'Receiving objects: 100% (2483/2483), 347.08 KiB | 1.14 MiB/s, done.',
 						'Resolving deltas: 100% (1775/1775), done.'
 					].join('\n')
+                    return { stdout: out, stderr: '', exitCode: 0 }
 				} else {
-					return `fatal: repository '${url}' does not exist`
+					return { stdout: '', stderr: `fatal: repository '${url}' does not exist`, exitCode: 1 /* TODO made up */ }
 				}
 			} else if(args[0] === 'status') {
-				return 'fatal: not a git repository (or any of the parent directories): .git'
+				return { stdout: '', stderr: 'fatal: not a git repository (or any of the parent directories): .git', exitCode: 128 /* verified */ }
 			} else if(args[0] === '--help') {
-				return helptxt
+				return { stdout: helptxt, stderr: '', exitCode: 0 /* verified */ }
 			} else {
-				return `git: '${args[0]}' is not a git command. See 'git --help'.`
+				return { stdout: '', stderr: `git: '${args[0]}' is not a git command. See 'git --help'.`, exitCode: 1 /* TODO made up */ }
 			}
 		} else if (cmd === 'shutdown') {
 			if(args[0] === '-c') {
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			if(args[0] === 'now') {
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
-			return `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`
+			return { stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 }
 		} else if (cmd === 'reboot') {
-			return [
+			const out = [
 				'Failed to set wall message, ignoring: Interactive authentication required.',
 				'Failed to reboot system via logind: Interactive authentication required.',
 				'Failed to open initctl fifo: Permission denied',
 				'Failed to talk to init daemon.'
 			].join('\n')
+            return { stdout: '', stderr: out, exitCode: 1 /* verified */ }
 		} else if (cmd === 'ps') {
 			const pid = !parseInt(getCurrentPid(), 10) ? 755767 : parseInt(getCurrentPid(), 10)
-			return [
+			const out = [
 				`PID TTY          TIME CMD`,
 				`${pid} pts/1    00:00:00 ${getCurrentShellShort()}`,
 				`${pid + Math.floor(Math.random() * 500)} pts/1    00:00:00 ps`
 			].join('\n')
+            return { stdout: out, stderr: '', exitCode: 0 }
 		} else if (cmd === 'hostname') {
-			return glbBs.vars['HOSTNAME'] // technically needs reboot
+            // technically would reboot
+            // to update actual hostname
+            // instead of just reading the var
+			return { stdout: glbBs.vars['HOSTNAME'], stderr: '', exitCode: 0 }
 		} else if (cmd === 'command') {
 			if (args[0] === '-v') {
 				args.shift()
 			} else {
 				// saying just command without -v basically runs the command
 				// could be done with recursion
-				return false
+                return { stdout: '', stderr: 'interal error', exitCode: 7812 }
 			}
 			const check = bashStr(args[0])
 			const match = cmdInUnixPath(check)
 			if (!match) {
-				return ''
+				return { stdout: '', stderr: '', exitCode: 1 /* verified */ }
 			}
-			return match
+			return { stdout: match, stderr: '', exitCode: 0 }
 		} else if (cmd === 'type') {
 			const check = bashStr(args[0])
 			const match = cmdInUnixPath(check)
 			if (!match) {
-				return `-bash: type: ${check}: not found`
+				return { stdout: '', stderr: `-bash: type: ${check}: not found`, exitCode: 1 /* TODO made up */ }
 			}
 			const [abspath, folder, filename] = pathInfo(match)
-			return `${check} is hashed (${abspath})`
+			return { stdout: '', stderr: `${check} is hashed (${abspath})`, exitCode: 1 /* TODO made up */ }
 		} else if (cmd === 'which') {
 			const check = bashStr(args[0])
 			const match = cmdInUnixPath(check)
 			if (!match) {
-				return `which: no ${check} in (${glbBs.vars['PATH']})`
+				return { stdout: '', stderr: `which: no ${check} in (${glbBs.vars['PATH']})`, exitCode: 1 /* TODO made up */ }
 			}
 			const [abspath, folder, filename] = pathInfo(match)
-			return abspath
+            return { stdout: abspath, stderr: '', exitCode: 0 /* TODO made up */ }
 		} else if (cmd === 'whoami') {
-			return getCurrentUnixUser()
+            return { stdout: getCurrentUnixUser(), stderr: '', exitCode: 0 /* TODO made up */ }
 		} else if (cmd === 'chmod') {
 			const expandedOptArg = bashStr(args[0])
 			args.shift()
 			const expandedFileArg = bashStr(args[0])
 			if(!expandedFileArg) {
-				return `chmod: missing operand after ‘${expandedOptArg}’`
+				return { stdout: '', stderr: `chmod: missing operand after ‘${expandedOptArg}’`, exitCode: 1 /* TODO made up */ }
 			}
 			const [abspath, folder, filename] = pathInfo(expandedFileArg)
 			const file = getFile(abspath)
 			if (!file) {
-				return `chmod: cannot access '${expandedFileArg}': No such file or directory`
+				return { stdout: '', stderr: `chmod: cannot access '${expandedFileArg}': No such file or directory`, exitCode: 1 /* TODO made up */ }
 			}
 			if (expandedOptArg === '777') {
 				if(!file.perms) {
 					file.perms = '-rw-r--r--'
 				}
 				file.perms = `${file.type === 'd' ? 'd' : '-'}rwxrwxrwx`
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			m = expandedOptArg.match(new RegExp('(.*)?([\\+\\-])(.*)'))
 			if(m) {
@@ -897,13 +924,13 @@ const fakeBash = (userinput: string): string => {
 					(isAdd ? 'x' : '-')
 				file.perms = newperms
 				console.log(`matched exec regex and set file perms to newperms=${newperms} file.perms=${file.perms} add=${isAdd}`)
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			console.log("warning fallback fileperms unkonwn opt" + expandedOptArg)
 			// failed to parse perms set random default xd
 			file.perms = '-rw-r--r--'
 			file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
-			return ''
+			return { stdout: '', stderr: '', exitCode: 0 }
 		} else if (cmd === 'cat') {
 			const path = bashStr(args[0])
 			// good ol bash word split
@@ -914,17 +941,17 @@ const fakeBash = (userinput: string): string => {
 			console.log(glbBs.fs)
 			console.log("file" + file)
 			if (!file) {
-				return `cat: ${path}: No such file or directory`	
+				return { stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ }
 			}
 			if(file.type === 'd') {
-				return `cat: ${path}: Is a directory`
+				return { stdout: '', stderr: `cat: ${path}: Is a directory`, exitCode: 1 /* verified */ }
 			}
 			if(file.content) {
-				return file.content
+				return { stdout: file.content, stderr: '', exitCode: 0 }
 			}
 		} else if (cmd === 'printf') {
 			if (args.length === 0) {
-				return 'printf: usage: printf [-v var] format [arguments]'
+				return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
 			}
 			let noArgs = false
 			if (args[0] === '--') {
@@ -933,15 +960,15 @@ const fakeBash = (userinput: string): string => {
 			}
 			if (noArgs && args[0] == '-v') {
 				args.shift()
-				if(args.length === 0) {
-					return 'printf: usage: printf [-v var] format [arguments]'
-				}
 				const variable = args.shift()
+                if (!variable) {
+                    return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
+                }
 				if(!/^[a-zA-Z_]+[a-zA-Z0-9_]*/.test(variable)) {
-					return `-bash: printf: \`${variable}': not a valid identifier`
+				    return { stdout: '', stderr: `-bash: printf: \`${variable}': not a valid identifier`, exitCode: 1 /* TODO */ }
 				}
 				if(args.length === 0) {
-					return 'printf: usage: printf [-v var] format [arguments]'
+					return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
 				}
 				const fmt = args[0]
 				let msg = bashStr(fmt)
@@ -952,13 +979,13 @@ const fakeBash = (userinput: string): string => {
 				})
 				// console.log(`set var ${variable} to ${msg} using printf`)
 				glbBs.vars[variable] = msg
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			}
 			if(!args[0]) {
-				return false // some arg pasing went wrong
+                return { stdout: '', stderr: 'internal error', exitCode: 420 }
 			}
 			if (noArgs && args[0][0] == '-') {
-				return `${cmd}: invalid option -- '${args[0]}'`
+				return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO */ }
 			}
 			const fmt = args[0]
 			let msg = bashStr(fmt)
@@ -968,7 +995,7 @@ const fakeBash = (userinput: string): string => {
 				arg = bashStr(arg)
 				msg = fmt.replace(/%[sib]/, arg)
 			})
-			return msg
+            return { stdout: msg, stderr: '', exitCode: 0 }
 		} else if (cmd === 'ls') {
 			let argFolder = null
 			if(!args[0]) {
@@ -990,7 +1017,7 @@ const fakeBash = (userinput: string): string => {
 			}
 			const [abspath, folder, filename] = pathInfo(argFolder ? argFolder : '.')
 			const files = glbBs.fs[abspath]
-			const printFile = (file: UnixFile, flagList: boolean) => {
+			const printFile = (file: UnixFile, flagList: boolean): string => {
 				let perms = '-rw-r--r--'
 				if(file.perms) {
 					perms = file.perms
@@ -1003,18 +1030,19 @@ const fakeBash = (userinput: string): string => {
 				}
 			}
 			if (files) {
-				return files.map((file) => {
+				const out = files.map((file) => {
 					return printFile(file, flagList)
 				}).sort().join('\n')
+                return { stdout: out, stderr: '', exitCode: 0 }
 			} else if (isFile(abspath)) {
 				const file = getFile(abspath)
 				if(!file) {
 					console.log("wtf")
-					return 'bash error'
+					return { stdout: 'bash error', stderr: '', exitCode: 0 }
 				}
-				return printFile(file, flagList)
+                return { stdout: printFile(file, flagList), stderr: '', exitCode: 0 }
 			} else {
-				return `ls: cannot access '${abspath}': Permission denied`
+                return { stdout: '', stderr: `ls: cannot access '${abspath}': Permission denied`, exitCode: 2 /* verified */ }
 			}
 		} else if (cmd === 'df') {
 			const used = getDiskUsage()
@@ -1032,11 +1060,11 @@ const fakeBash = (userinput: string): string => {
 				`tmpfs               5120        4      5116   1% /run/lock`,
 				`/dev/mmcblk0p6    258094    49323    208772  20% /boot`,
 				`tmpfs             808828       24    808804   1% /run/user/1001`
-			]
-			return out.join('\n')
+			].join('\n')
+            return { stdout: out, stderr: '', exitCode: 0 }
 		} else if (cmd === 'rm') {
 			if (args.length === 0) {
-				return 'rm: missing operand'
+				return { stdout: 'rm: missing operand', stderr: '', exitCode: 1 /* verified */ }
 			}
 			let argRecurse = false
 			if (args[0] === '-r' || args[0] === '-rf') {
@@ -1044,36 +1072,36 @@ const fakeBash = (userinput: string): string => {
 				args.shift()
 			}
 			if (args[0][0] == '-') {
-				return `${cmd}: invalid option -- '${args[0]}'`
+				return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* verified */ }
 			}
 			let path = bashStr(args[0])
 			const [abspath, folder, filename] = pathInfo(path)
 			if(unixDelFile(path)) {
-				return ''
+				return { stdout: '', stderr: '', exitCode: 0 }
 			} else if(isDir(abspath)) {
 				if(argRecurse) {
 					glbBs.fs[abspath] = []
-					return ''
+					return { stdout: '', stderr: '', exitCode: 0 }
 				} else {
-					return `rm: cannot remove '${path}': Is a directory`
+					return { stdout: '', stderr: `rm: cannot remove '${path}': Is a directory`, exitCode: 1 /* TODO made up */ }
 				}
 			}
 			if (path[0] === '/') {
-				return `rm: cannot remove '${path}': Permission denied`
+				return { stdout: '', stderr: `rm: cannot remove '${path}': Permission denied`, exitCode: 1 /* TODO made up */ }
 			}
-			return `rm: cannot remove '${path}': No such file or directory`
+			return { stdout: '', stderr: `rm: cannot remove '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ }
 			// return "rm: remove write-protected regular fipytlehKilledon error"
 		} else if (cmd === 'ls') {
 			// we handle ls else where
 		} else if (!cmdInUnixPath(cmd)) {
-			return `bash: ${cmd}: command not found`
+			return { stdout: '', stderr: `bash: ${cmd}: command not found`, exitCode: 1 /* TODO made up */ }
 		}
 		// this says invalid option on every command
 		// } else if (args[0]) {
-		// 	return `${cmd}: invalid option -- '${args[0]}'`
+		// 	return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ }
 		// }
 	}
-	return false
+	return { stdout: '', stderr: 'unsafe bash', exitCode: 1 }
 }
 
 export default fakeBash
