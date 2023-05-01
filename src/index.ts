@@ -7,8 +7,12 @@ require('dotenv').config()
 
 import { fakeBash } from './bash/bash'
 
+// WTF typescript
+// there has to be a proper fix in tsconfig.json but idk it
+declare const fetch: Function
+
 const interfaces = networkInterfaces()
-const eth0 = interfaces.eth0 ? interfaces.eth0.filter((a) => a.family === 'IPv4')[0].address : ''
+const eth0 = interfaces.eth0 ? interfaces.eth0.filter((a: any) => a.family === 'IPv4')[0].address : ''
 
 console.log('***')
 console.log('* ddnet irc bot - call !mods on ddnet dvlpr irc')
@@ -51,12 +55,12 @@ loadQuiz()
 
 console.log(QUIZ)
 
-const getServerIpsByPlayerName = async (searchName) => {
+const getServerIpsByPlayerName = async (searchName: string) => {
 	const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
 	const data = await res.json()
-	let matchedEntries = []
-	data.servers.forEach((entry) => {
-		const names = entry.info.clients.map((client) => client.name)
+	let matchedEntries: any[] = []
+	data.servers.forEach((entry: any) => {
+		const names = entry.info.clients.map((client: any) => client.name)
 		if (names.includes(searchName)) {
 			matchedEntries.push(entry)
 		}
@@ -65,13 +69,13 @@ const getServerIpsByPlayerName = async (searchName) => {
 	matchedEntries = matchedEntries.filter((e) => e.info.name.startsWith('DDNet '))
 
 	// console.log(matchedEntries)
-	const ips = []
+	const ips: string[] = []
 	matchedEntries.forEach((entry) => {
 		entry.addresses
-			.filter((addr) => addr.startsWith('tw-0.7+udp://'))
-			.forEach((addr) => ips.push(addr))
+			.filter((addr: string) => addr.startsWith('tw-0.7+udp://'))
+			.forEach((addr: string) => ips.push(addr))
 	})
-	const ddnetLinks = ips.map((ip) => `ddnet://${ip.substr(13)}`)
+	const ddnetLinks = ips.map((ip) => `ddnet://${ip.substring(13)}`)
 	return ddnetLinks
 }
 
@@ -122,7 +126,7 @@ const checkPingPongCmd = (cmd: string): string | null => {
 		const data = fs.readFileSync('ping_pong.csv', 'utf8');
 		const rows = data.split('\n')
 
-		rows.forEach((row) => {
+		rows.forEach((row: string) => {
 			const [ping, pong] = row.split(', ')
 			if (cmd === ping) {
 				res = pong
@@ -147,7 +151,7 @@ const isPapaChiler = (from: string, isBridge: boolean) => {
 	return true
 }
 
-client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from: string, message: string) => {
+client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, async (from: string, message: string) => {
 	let isBridge = false
 	if (from === 'bridge') {
 		const slibbers = message.split('>')
@@ -187,12 +191,12 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from: string, me
 			return
 		}
 		const denoProc = spawn('deno', ['eval', unsafeUnsanitizedUserinput])
-		const delay = parseInt(process.env.JS_DELAY, 10)
-		denoProc.stderr.on('data', (data) => {
+		const delay = parseInt(process.env.JS_DELAY || '0', 10)
+		denoProc.stderr.on('data', (_data: Buffer | string | any) => {
 			say('js error')
 		})
-		denoProc.stdout.on('data', (data) => {
-			data.toString().split('\n').forEach((line) => {
+		denoProc.stdout.on('data', (data: Buffer | string | any) => {
+			data.toString().split('\n').forEach((line: string) => {
 				if (!delay) {
 					say(line)
 				} else {
@@ -209,23 +213,19 @@ client.addListener(`message#${process.env.IRC_CHANNEL}`, async (from: string, me
 		}
 		const userinput = args.join(' ')
 		const fake = fakeBash(userinput)
-		if (fake !== false && fake !== undefined && fake !== null) {
-			const maxStdout = parseInt(process.env.MAX_STDOUT, 10)
-			let numStdout = 0
-			fake.toString().split('\n').forEach((line) => {
-				numStdout += 1
-				if (numStdout === maxStdout) { line = 'max output ...' }
-				if (numStdout > maxStdout) { return }	
+		const maxStdout = parseInt(process.env.MAX_STDOUT || '3', 10)
+		let numStdout = 0
+		fake.toString().split('\n').forEach((line) => {
+			numStdout += 1
+			if (numStdout === maxStdout) { line = 'max output ...' }
+			if (numStdout > maxStdout) { return }	
 
-				messageQueue.push(line)
-			})
-		} else {
-			say('unsafe bash')
-		}
+			messageQueue.push(line)
+		})
 		return
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
-		pythonProcess.stdout.on('data', (data) => {
+		pythonProcess.stdout.on('data', (data: Buffer | string | any) => {
 			data.toString().split('\n').forEach((line: string) => {
 				messageQueue.push(line)
 			})
