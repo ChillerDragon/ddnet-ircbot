@@ -633,7 +633,6 @@ const evalBash = (userinput: string): BashResult => {
 	if (m) {
 		const cmd = m[1]
 		let args = m[2] ? m[2].split(' ') : []
-		console.log(args)
 		if (cmd === 'uname' && args[0] === '-a') {
 			return { stdout: 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux', stderr: '', exitCode: 0 }
 		} else if (cmd === 'uname' && args[0] === '-r') {
@@ -714,16 +713,11 @@ const evalBash = (userinput: string): BashResult => {
 			const msg = args.join(' ')
 			const expandedArgs = bashStr(msg)
 			const redirectRegex = new RegExp('(.*)\\s*(>+)\\s*(.*)')
-			console.log("expandedArgs="+expandedArgs)
 			m = expandedArgs.match(redirectRegex)
 			if(m) {
 				const text = m[1]
 				const isAppend = m[2] !== '>'
 				const outfile = m[3]
-				console.log(m)
-				console.log(text)
-				console.log(isAppend)
-				console.log(outfile)
 				// null random urandom zero etc
 				if(outfile.startsWith('/dev/')) {
 					return { stdout: '', stderr: '', exitCode: 0 }
@@ -785,9 +779,6 @@ const evalBash = (userinput: string): BashResult => {
 						return { stdout: '', stderr: `fatal: destination path '${basename}' already exists and is not an empty directory.`, exitCode: 1 /* TODO made up */ }
 					}
 					let ioError = CreateFolder(basename)
-					if(ioError === null) {
-						console.log(`created folder = ${basename} without io eror`)
-					}
 					if(ioError === null) { ioError = createFileWithContent(`${basename}/README.md`, 'this is the readme'); }
 					if(ioError === null) { ioError = createFileWithContent(`${basename}/LICENSE`, 'MIT License'); }
 					if(ioError === null) { ioError = CreateFolder(`${basename}/src`); }
@@ -938,11 +929,7 @@ const evalBash = (userinput: string): BashResult => {
 			const path = bashStr(args[0])
 			// good ol bash word split
 			const [abspath, folder, filename] = pathInfo(path)
-			console.log(path)
-			console.log([abspath, folder, filename])
 			const file = getFile(abspath)
-			console.log(glbBs.fs)
-			console.log("file" + file)
 			if (!file) {
 				return { stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ }
 			}
@@ -993,7 +980,6 @@ const evalBash = (userinput: string): BashResult => {
 			const fmt = args[0]
 			let msg = bashStr(fmt)
 			args.shift()
-			console.log(args)
 			args.forEach((arg) => {
 				arg = bashStr(arg)
 				msg = fmt.replace(/%[sib]/, arg)
@@ -1006,7 +992,6 @@ const evalBash = (userinput: string): BashResult => {
 			}
 			let flagList = false
 			while (args[0]) {
-				console.log(args[0])
 				if(args[0][0] === '-') {
 					args[0].split("").forEach((flag) => {
 						if(flag === 'l') {
