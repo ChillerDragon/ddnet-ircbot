@@ -585,9 +585,13 @@ const bashStr = (string: string): string => {
 	let isVar = false
 	let finalString = ''
 	string.split('').forEach((letter) => {
-		// console.log(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
-		if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
-			scope = (scope === '"') ? null : '"'
+		console.log(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
+		// if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
+		// 	scope = (scope === '"') ? null : '"'
+		if (letter === '"' && scope === '"') { // close double quote
+			scope = null
+		} else if (letter === '"' && scope === null) { // open double quote
+			scope = '"'
 		} else if (letter === "'") {
 			if (scope === '}') { // single quote in ${var'} breaks
 				throw('unexpected EOF')
@@ -610,7 +614,7 @@ const bashStr = (string: string): string => {
 			curly = "}"
 		} else if (letter === '}' && curly) { // close curly
 			curly = null
-			// console.log(`[bash][var][match_curly] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+			console.log(`[bash][var][match_curly] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
 			finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 			currentVar = ''
 			isVar = false
@@ -623,7 +627,7 @@ const bashStr = (string: string): string => {
 			if (new RegExp(`^${pat}$`).test(letter)) {
 				currentVar += letter
 			} else {
-				// console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+				console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
 				finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 				currentVar = ''
 				finalString += letter
@@ -634,8 +638,8 @@ const bashStr = (string: string): string => {
 		}
 	})
 	if(isVar) {
-		// console.log(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
-		// console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+		console.log(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
+		console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
 		finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 		isVar = false
 	}
@@ -759,7 +763,7 @@ const assignVariable = (validAlreadyExpandedVariableAssignment: string): void =>
 		return
 	}
 	const expandedVal = varVal // bashStr(varVal) // TODO: should we maybe not double expand here?
-	// console.log(`[bash][assign_var] ${varKey}=${expandedVal}`)
+	console.log(`[bash][assign_var] ${varKey}=${expandedVal}`)
 	glbBs.vars[varKey] = expandedVal
 }
 
@@ -768,8 +772,8 @@ const evalBash = (userinput: string): BashResult => {
 	if(hardcode !== null) {
 		return hardcode
 	}
-	// console.log('-----------------------------')
-	// console.log(`eval: ${userinput}`)
+	console.log('-----------------------------')
+	console.log(`eval: ${userinput}`)
 
 	// leading spaces are never part of the syntax
 	// or breaking the syntax
@@ -1165,7 +1169,7 @@ const evalBash = (userinput: string): BashResult => {
 			args.shift()
 			noArgs = true
 		}
-		if (noArgs && args[0] == '-v') {
+		if (!noArgs && args[0] === '-v') {
 			args.shift()
 			const variable = args.shift()
 			if (!variable) {
@@ -1177,12 +1181,10 @@ const evalBash = (userinput: string): BashResult => {
 			if(args.length === 0) {
 				return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
 			}
-			const fmt = args[0]
-			let msg = bashStr(fmt)
+			let msg = args[0]
 			args.shift()
 			args.forEach((arg) => {
-				arg = bashStr(arg)
-				msg = fmt.replace(/%[sib]/, arg)
+				msg = msg.replace(/%[sib]/, arg)
 			})
 			// console.log(`set var ${variable} to ${msg} using printf`)
 			glbBs.vars[variable] = msg
@@ -1194,12 +1196,10 @@ const evalBash = (userinput: string): BashResult => {
 		if (noArgs && args[0][0] == '-') {
 			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO */ }
 		}
-		const fmt = args[0]
-		let msg = bashStr(fmt)
+		let msg = args[0]
 		args.shift()
 		args.forEach((arg) => {
-			arg = bashStr(arg)
-			msg = fmt.replace(/%[sib]/, arg)
+			msg = msg.replace(/%[sib]/, arg)
 		})
 		return { stdout: msg, stderr: '', exitCode: 0 }
 	} else if (cmd === 'ls') {

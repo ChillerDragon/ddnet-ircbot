@@ -112,9 +112,9 @@ assert.equal(fakeBash('inner=INSIDE'), '')
 assert.equal(fakeBash('innerouter=OUTER'), '')
 assert.equal(fakeBash('echo $innerouter'), 'OUTER')
 
-// vars should not expand in quotes or double expand
+// vars should not expand in single quotes or double expand
 // not working yet too lazy to bother i wanna go on
-// assert.equal(fakeBash("foo='$HOME'"), '')
+assert.equal(fakeBash("foo='$HOME'"), '')
 // assert.equal(fakeBash("echo $foo"), '$HOME')
 // assert.equal(fakeBash("echo $foo $foo"), '$HOME $HOME')
 
@@ -126,6 +126,13 @@ assert.equal(fakeBash("echo ${$}$"), '24410$')
 assert.equal(fakeBash("echo $?"), '0')
 assert.equal(fakeBash("echo ${?}"), '0')
 assert.equal(fakeBash("echo $??"), '0?')
+
+assert.equal(fakeBash("printf hi"), 'hi')
+assert.equal(fakeBash("printf -v x hi"), '')
+assert.equal(fakeBash("printf $x"), 'hi')
+assert.equal(fakeBash("printf -v iggs '$x'"), '')
+// assert.equal(fakeBash('printf "$iggs"'), '$x')
+// assert.equal(fakeBash("printf '$iggs'"), '$iggs')
 
 assert.equal(fakeBash('ls README.md'), 'README.md')
 assert.equal(fakeBash('echo $?'), '0')
