@@ -1,6 +1,15 @@
-import { fakeBash, bashWordSplit, pathInfo, glbBs } from './bash'
+import { fakeBash, removeBashQuotes, bashWordSplit, pathInfo, glbBs } from './bash'
 
 import { strict as assert } from 'node:assert';
+
+assert.equal(removeBashQuotes('foo'), 'foo')
+assert.equal(removeBashQuotes('"foo"'), 'foo')
+assert.equal(removeBashQuotes("'foo'"), 'foo')
+assert.equal(removeBashQuotes("'foo'bar"), 'foobar')
+assert.equal(removeBashQuotes(`'foo'"bar"`), 'foobar')
+assert.equal(removeBashQuotes(`'foo'" bar"`), 'foo bar')
+assert.equal(removeBashQuotes(`hello "WO'W"`), "hello WO'W")
+assert.equal(removeBashQuotes(`hello 'WO"W'`), 'hello WO"W')
 
 assert.deepEqual(bashWordSplit('foo'), ['foo'])
 assert.deepEqual(bashWordSplit(''), [''])

@@ -510,6 +510,31 @@ const CreateFolder = (path: string): string | null => {
 // 	return ['']
 // }
 
+export const removeBashQuotes = (text: string): string => {
+	// simple string no quotes
+	// split on space and strip all surrounding
+	// spaces around words
+	if(!text.includes('"') && !text.includes("'")) {
+		return text
+	}
+	let stripped = ''
+	let quote: string | null = null
+	text.split('').forEach((letter) => {
+		// console.log(`word=${word} words=${words} letter=${letter} quote=${quote}`)
+		if (["'", '"'].includes(letter) && !quote) { // open quote
+			quote = letter
+		} else if (quote === letter) { // close quote
+			quote = null
+		} else {
+			stripped += letter
+		}
+	})
+	if (quote) {
+		return `unexpected EOF while looking for matching \`${quote}'`
+	}
+	return stripped
+}
+
 export const bashWordSplit = (text: string): string[] | string => {
 	// simple string no quotes
 	// split on space and strip all surrounding
