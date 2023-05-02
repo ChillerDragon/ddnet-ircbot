@@ -544,7 +544,7 @@ export const bashWordSplit = (text: string): string[] | string => {
 
 // console.log(bashWordSplit('"foo"'))
 
-const bashVarNamePattern = '[a-zA-Z_\\?\\$]+[a-zA-Z0-9_]*'
+// const bashVarNamePattern = '[a-zA-Z_\\?\\$]+[a-zA-Z0-9_]*'
 
 const bashStr = (string: string): string => {
 	if(!string) {
@@ -581,10 +581,11 @@ const bashStr = (string: string): string => {
 
 	let currentVar = ''
 	let scope: string | null = null
+	let curly: string | null = null
 	let isVar = false
 	let finalString = ''
 	string.split('').forEach((letter) => {
-		// console.log(`currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope}`)
+		// console.log(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
 		if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
 			scope = (scope === '"') ? null : '"'
 		} else if (letter === "'") {
@@ -598,16 +599,32 @@ const bashStr = (string: string): string => {
 			} else {
 				throw('invalid scope')
 			}
-		} else if (letter === '$' && scope !== "'") {
+		} else if (letter === '$' && scope !== "'" && !isVar) { // we need !IsVar because of $$ pid var
 			isVar = true
-		} else if (letter === '{' && isVar) { // open curly
-			scope = "}"
+		} else if (letter === '{' && isVar && curly === null) { // open curly
+			//                      check for curly === null
+			//              because:
+			//                 echo $a{a
+			//              prints:
+			//                 {a
+			curly = "}"
+		} else if (letter === '}' && curly) { // close curly
+			curly = null
+			// console.log(`[bash][var][match_curly] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+			finalString += currentVar === '' ? '$' : getBashVar(currentVar)
+			currentVar = ''
+			isVar = false
 		} else if (isVar) {
+			// const bashVarPattern = '[a-zA-Z_0-9\\?\\$]+[a-zA-Z0-9_]*'
 			// TODO $$ and $$$
-			if (new RegExp(`^${bashVarNamePattern}$`).test(letter)) {
+			const bashVarLetter1Pattern = '[a-zA-Z_0-9\\?\\$]'
+			const bashVarLetter2Pattern = '[a-zA-Z_0-9]'
+			const pat = currentVar.length === 0 ? bashVarLetter1Pattern : bashVarLetter2Pattern
+			if (new RegExp(`^${pat}$`).test(letter)) {
 				currentVar += letter
 			} else {
-				finalString += getBashVar(currentVar)
+				// console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+				finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 				currentVar = ''
 				finalString += letter
 				isVar = false
@@ -617,8 +634,13 @@ const bashStr = (string: string): string => {
 		}
 	})
 	if(isVar) {
-		finalString += getBashVar(currentVar)
+		// console.log(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
+		// console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+		finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 		isVar = false
+	}
+	if (!scope) {
+		scope = curly
 	}
 	if (scope) {
 		throw `unexpected EOF while looking for matching \`${scope}'`
@@ -654,10 +676,10 @@ const bashStr = (string: string): string => {
 }
 
 export const fakeBash = (userinput: string): string => {
-	const expandedBash = bashStr(userinput)
-	if(userinput !== expandedBash)
-		console.log(`[bash][expand] ${userinput} -> ${expandedBash}`)
-    const { stdout, stderr, exitCode } = evalBash(expandedBash)
+	// const expandedBash = bashStr(userinput)
+	// if(userinput !== expandedBash)
+	// 	console.log(`[bash][expand] ${userinput} -> ${expandedBash}`)
+    const { stdout, stderr, exitCode } = evalBash(userinput)
     glbBs.vars['?'] = exitCode.toString()
     // TODO: can we do something better here
     //       to support mixed order stdout and stderr
@@ -736,7 +758,9 @@ const assignVariable = (validAlreadyExpandedVariableAssignment: string): void =>
 		console.log(`Error got invalid variable assingment: ${validAlreadyExpandedVariableAssignment}`)
 		return
 	}
-	glbBs.vars[varKey] = bashStr(varVal)
+	const expandedVal = varVal // bashStr(varVal) // TODO: should we maybe not double expand here?
+	// console.log(`[bash][assign_var] ${varKey}=${expandedVal}`)
+	glbBs.vars[varKey] = expandedVal
 }
 
 const evalBash = (userinput: string): BashResult => {
@@ -744,6 +768,8 @@ const evalBash = (userinput: string): BashResult => {
 	if(hardcode !== null) {
 		return hardcode
 	}
+	// console.log('-----------------------------')
+	// console.log(`eval: ${userinput}`)
 
 	// leading spaces are never part of the syntax
 	// or breaking the syntax
@@ -760,20 +786,20 @@ const evalBash = (userinput: string): BashResult => {
 		isVarAssign = true
 	}
 
-	console.log('-----------------------------')
-	const expandedString = bashStr(userinput)
-	console.log(`[bash][bashstr] ${userinput} -> ${expandedString}`)
-	const inputWords = bashWordSplit(expandedString)
-	console.log(`[bash][worldsplit] ${expandedString} -> ${inputWords}`)
-	if (typeof inputWords === 'string' || inputWords instanceof String) {
+	const splitWords = bashWordSplit(userinput)
+	// console.log(`[bash][worldsplit] ${userinput} -> ${splitWords}`)
+	if (typeof splitWords === 'string' || splitWords instanceof String) {
 		// the toString() is just here to please typescript
-		return { stdout: '', stderr: inputWords.toString(), exitCode: 1 }
+		return { stdout: '', stderr: splitWords.toString(), exitCode: 1 }
 	}
-	const cmd = inputWords.shift()
+	const expandedWords = splitWords.map((word) => bashStr(word))
+	const cmd = expandedWords.shift()
 	if (!cmd) {
 		return { stdout: '', stderr: 'internal error', exitCode: 1812 }
 	}
-	const args = inputWords
+	const args = expandedWords
+
+	// console.log(`[bash][bashstr] cmd=${cmd} args=${args}`)
 
 	if(isVarAssign) {
 		if(!args || args.length === 0) {
@@ -790,7 +816,8 @@ const evalBash = (userinput: string): BashResult => {
 			//     |    |
 			//    var  new command
 			console.log('[bash][eval] warning doing recursion to eval after var assign')
-			console.log(args)
+			// console.log(args)
+			// return { stdout: '', stderr: '', exitCode: 0 }
 			return evalBash(args.join(' '))
 		}
 	}
@@ -850,7 +877,7 @@ const evalBash = (userinput: string): BashResult => {
 		if (args[0][0] == '-') {
 			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ }
 		}
-		let path = bashStr(args[0])
+		let path = args[0]
 		if(/\./.test(path) && path !== '..') {
 			// TODO: support ../ and ./ and foo/../../bar paths
 			console.log('rel path not supportede')
@@ -888,7 +915,7 @@ const evalBash = (userinput: string): BashResult => {
 		if(killAll) {
 			return { stdout: 'bash error', stderr: '', exitCode: 0 }
 		}
-		const pid = bashStr(args[0])
+		const pid = args[0]
 		if(pid === getCurrentPid() || pid === getParentPid()) {
 			return { stdout: 'bash error', stderr: '', exitCode: 0 }
 		}
@@ -902,9 +929,8 @@ const evalBash = (userinput: string): BashResult => {
 			args.shift()
 		}
 		const msg = args.join(' ')
-		const expandedArgs = bashStr(msg)
 		const redirectRegex = new RegExp('(.*)\\s*(>+)\\s*(.*)')
-		const m = expandedArgs.match(redirectRegex) // TODO: redirect should be handled outside of bashEval
+		const m = msg.match(redirectRegex) // TODO: redirect should be handled outside of bashEval
 		if(m) {
 			const text = m[1]
 			const isAppend = m[2] !== '>'
@@ -931,10 +957,10 @@ const evalBash = (userinput: string): BashResult => {
 			}
 			return { stdout: '', stderr: ioError, exitCode: 1 }
 		} else {
-			console.log(`redirect regex did not match inout=${msg}`)
-			console.log(`expanded=${expandedArgs} regex=${redirectRegex.source}`)
+			// console.log(`redirect regex did not match inout=${msg}`)
+			// console.log(`msg=${msg} regex=${redirectRegex.source}`)
 		}
-		return { stdout: expandedArgs, stderr: '', exitCode: 0 }
+		return { stdout: msg, stderr: '', exitCode: 0 }
 	} else if (cmd === 'git') {
 		const helptxt = [
 			'usage: git [--version] [--help] [-C <path>] [-c <name>=<value>]',
@@ -1045,14 +1071,14 @@ const evalBash = (userinput: string): BashResult => {
 			// could be done with recursion
 			return { stdout: '', stderr: 'interal error', exitCode: 7812 }
 		}
-		const check = bashStr(args[0])
+		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
 			return { stdout: '', stderr: '', exitCode: 1 /* verified */ }
 		}
 		return { stdout: match, stderr: '', exitCode: 0 }
 	} else if (cmd === 'type') {
-		const check = bashStr(args[0])
+		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
 			return { stdout: '', stderr: `-bash: type: ${check}: not found`, exitCode: 1 /* TODO made up */ }
@@ -1060,7 +1086,7 @@ const evalBash = (userinput: string): BashResult => {
 		const [abspath, folder, filename] = pathInfo(match)
 		return { stdout: '', stderr: `${check} is hashed (${abspath})`, exitCode: 1 /* TODO made up */ }
 	} else if (cmd === 'which') {
-		const check = bashStr(args[0])
+		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
 			return { stdout: '', stderr: `which: no ${check} in (${glbBs.vars['PATH']})`, exitCode: 1 /* TODO made up */ }
@@ -1070,9 +1096,9 @@ const evalBash = (userinput: string): BashResult => {
 	} else if (cmd === 'whoami') {
 		return { stdout: getCurrentUnixUser(), stderr: '', exitCode: 0 /* TODO made up */ }
 	} else if (cmd === 'chmod') {
-		const expandedOptArg = bashStr(args[0])
+		const expandedOptArg = args[0]
 		args.shift()
-		const expandedFileArg = bashStr(args[0])
+		const expandedFileArg = args[0]
 		if(!expandedFileArg) {
 			return { stdout: '', stderr: `chmod: missing operand after ‘${expandedOptArg}’`, exitCode: 1 /* TODO made up */ }
 		}
@@ -1117,7 +1143,7 @@ const evalBash = (userinput: string): BashResult => {
 		file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
 		return { stdout: '', stderr: '', exitCode: 0 }
 	} else if (cmd === 'cat') {
-		const path = bashStr(args[0])
+		const path = args[0]
 		// good ol bash word split
 		const [abspath, folder, filename] = pathInfo(path)
 		const file = getFile(abspath)
@@ -1190,7 +1216,7 @@ const evalBash = (userinput: string): BashResult => {
 					}
 				})
 			} else if (!argFolder) {
-				argFolder = bashStr(args[0])
+				argFolder = args[0]
 			}
 			args.shift()
 		}
@@ -1253,7 +1279,7 @@ const evalBash = (userinput: string): BashResult => {
 		if (args[0][0] == '-') {
 			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* verified */ }
 		}
-		let path = bashStr(args[0])
+		let path = args[0]
 		const [abspath, folder, filename] = pathInfo(path)
 		if(unixDelFile(path)) {
 			return { stdout: '', stderr: '', exitCode: 0 }

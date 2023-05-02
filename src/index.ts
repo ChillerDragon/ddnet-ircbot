@@ -14,6 +14,11 @@ declare const fetch: Function
 const interfaces = networkInterfaces()
 const eth0 = interfaces.eth0 ? interfaces.eth0.filter((a: any) => a.family === 'IPv4')[0].address : ''
 
+if (!process.env.IRC_CHANNEL) {
+	console.log('Error: IRC_CHANNEL is not set! check your .env file')
+	process.exit(1)
+}
+
 console.log('***')
 console.log('* ddnet irc bot - call !mods on ddnet dvlpr irc')
 console.log('*')
