@@ -20,7 +20,7 @@ interface UnixFileDescriptor {
 	stdIo: StdIo | null,
 	append: boolean,
 	id: number,
-	outfile: string
+	outfile: string | null
 }
 
 interface BashState {
@@ -501,6 +501,9 @@ const getCurrentShellShort = () => {
 const appendToFileContent = (path: string, text: string) => {
 	dbgPrintFs(`[bash][fs] appendToFileContent(${path}, ${text})`)
 	const [abspath, folder, filename] = pathInfo(path)
+	if (['/dev/null', '/dev/random', '/dev/urandom'].includes(abspath)) {
+		return null
+	}
 	let fileHandle = getFile(abspath)
 	if (!fileHandle) {
 		dbgPrintFs(`[bash][fs] warning file not found abspath=${abspath} folder=${folder} filename=${filename}`)
@@ -535,6 +538,9 @@ const appendToFileContent = (path: string, text: string) => {
 */
 const createOrOverwriteFileWithContent = (path: string, text: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
+	if (['/dev/null', '/dev/random', '/dev/urandom'].includes(abspath)) {
+		return null
+	}
     if(!filename) {
         console.log(`error failed to get filename path=${path}`)
         return null
@@ -996,9 +1002,12 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 	}
 	if (glbBs.stdoutFileDescriptior.stdIo === null && glbBs.stdoutFileDescriptior.outfile != '') {
 		const ioOp = glbBs.stdoutFileDescriptior.append ? appendToFileContent : createOrOverwriteFileWithContent
-		const ioError = ioOp(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
-		if(ioError !== null) {
-			flushedRes.stderr = mergeStringNewline(flushedRes.stderr, ioError)
+		// can be null for example when piping to /dev/null
+		if (glbBs.stdoutFileDescriptior.outfile) {
+			const ioError = ioOp(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
+			if(ioError !== null) {
+				flushedRes.stderr = mergeStringNewline(flushedRes.stderr, ioError)
+			}
 		}
 		flushedRes.stdout = ''
 	}
@@ -1017,11 +1026,32 @@ const redirectToFile = (append: boolean, leftWords: string[], rightWords: string
 
 	const outfile = rightWords[0]
 
+	if (['/dev/null', '/dev/random', '/dev/urandom'].includes(outfile)) {
+		glbBs.stdoutFileDescriptior.stdIo = null
+		glbBs.stdoutFileDescriptior.append = append
+		glbBs.stdoutFileDescriptior.outfile = null
+		return null
+	}
+
+	// /dev/tcp and /dev/udp pseudo device
+	const m = outfile.match(new RegExp("/dev/(tcp|udp)/([^/]+)/(.*)"))
+	if (m) {
+		const protocol = m[1]
+		const host = m[2]
+		const port = m[3]
+		if (!host.match(new RegExp("^(?:(?:1?[1-9]?\\d|[12][0-4]\\d|25[0-5])(?:\\.(?!$)|$)){4}$"))) {
+			return `-bash: ${host}: Name or service not known\n` +
+				   `-bash: ${outfile}: Invalid argument`
+		}
+		if (!port.match(new RegExp("^[0-9]+$"))) {
+			return `-bash: ${port}: Servname not supported for ai_socktype\n` +
+				   `-bash: ${outfile}: Invalid argument`
+		}
+		return '-bash: connect: Connection refused\n' +
+			   `-bash: ${outfile}: Connection refused`
+	}
 	// TODO: check outfile for magic names such as
 	// 1,2,3 to redirect stdout to stderr etc
-	// /dev/null etc
-	// /dev/udp
-	// /dev/tcp/host/port ?
 
 	const [abspath, folder, filename] = pathInfo(outfile)
 	if(isDir(abspath)) {

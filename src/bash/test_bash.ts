@@ -274,6 +274,16 @@ assert.equal(fakeBash('printf %d\\n 10'), '10\n')
 assert.equal(fakeBash('printf "%d\\n" 10'), '10\n')
 assert.equal(fakeBash('printf "%d\\n%s" 10 "some word"'), '10\nsome word')
 
+// pseudo devices
+assert.equal(fakeBash('echo hack > /dev/null'), '')
+assert.equal(fakeBash('echo hack >> /dev/null'), '')
+
+// pseudo network devices
+assert.equal(fakeBash('echo hack > /dev/tcp/gaming.gov/1337'), '-bash: gaming.gov: Name or service not known\n-bash: /dev/tcp/gaming.gov/1337: Invalid argument')
+assert.equal(fakeBash('echo hack > /dev/tcp/1.1.1.256/1337'), '-bash: 1.1.1.256: Name or service not known\n-bash: /dev/tcp/1.1.1.256/1337: Invalid argument')
+assert.equal(fakeBash('echo hack > /dev/tcp/8.8.8.8/hariporter'), '-bash: hariporter: Servname not supported for ai_socktype\n-bash: /dev/tcp/8.8.8.8/hariporter: Invalid argument')
+assert.equal(fakeBash('echo hack > /dev/tcp/1.1.1.1/1337'), '-bash: connect: Connection refused\n-bash: /dev/tcp/1.1.1.1/1337: Connection refused')
+
 // assert.equal(fakeBash('cd ..'), '') // does not detect /home as dir for whatever reason
 // assert.equal(fakeBash('cd /home'), '')
 // assert.equal(fakeBash('pwd'), 'pi')
