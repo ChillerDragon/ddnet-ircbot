@@ -2,10 +2,20 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
-// assert.equal(fakeBash('echo hi >> bar.txt'), '')
-// process.exit(0)
+assert.equal(fakeBash('notfound >> should_be_empty.txt'), 'bash: notfound: command not found')
+assert.equal(fakeBash('cat should_be_empty.txt'), "")
+
+assert.equal(fakeBash('sudo test >> should_be_empty2.txt'), 'sudo: a password is required')
+assert.equal(fakeBash('cat should_be_empty2.txt'), "")
+
+assert.equal(fakeBash('echo hi >> bar.txt'), '')
 
 assert.equal(fakeBash('foo >> '), "-bash: syntax error near unexpected token `newline'")
+
+assert.equal(fakeBash(';; > foo.txt'), "-bash: syntax error near unexpected token `;'")
+assert.equal(fakeBash('sudo test'), 'sudo: a password is required')
+assert.equal(fakeBash('sudo test > foo.txt'), 'sudo: a password is required')
+// assert.equal(fakeBash('cat foo.txt'), "") // TODO: >
 
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo ; bar'), ["foo", ";", "bar"])
 

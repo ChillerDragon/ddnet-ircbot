@@ -499,10 +499,20 @@ const getCurrentShellShort = () => {
 	returns null or disk error string
 */
 const appendToFileContent = (path: string, text: string) => {
+	dbgPrintFs(`[bash][fs] appendToFileContent(${path}, ${text})`)
 	const [abspath, folder, filename] = pathInfo(path)
-	const fileHandle = getFile(abspath)
+	let fileHandle = getFile(abspath)
 	if (!fileHandle) {
-		return null
+		dbgPrintFs(`[bash][fs] warning file not found abspath=${abspath} folder=${folder} filename=${filename}`)
+		const ioError = createFileWithContent(path, text)
+		if (ioError) {
+			return ioError
+		}
+	}
+	fileHandle = getFile(abspath)
+	if (!fileHandle) {
+		dbgPrintFs(`[bash][fs] file not found one abspath=${abspath} folder=${folder} filename=${filename}`)
+		return 'kernel panic'
 	}
 	if (!fileHandle.content) {
 		fileHandle.content = ''
@@ -984,7 +994,10 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 		ioFlushed: true
 	}
 	if (glbBs.stdoutFileDescriptior.stdIo === null && glbBs.stdoutFileDescriptior.outfile != '') {
-		appendToFileContent(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
+		const ioError = appendToFileContent(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
+		if(ioError !== null) {
+			flushedRes.stderr = mergeStringNewline(flushedRes.stderr, ioError)
+		}
 		flushedRes.stdout = ''
 	}
 
@@ -994,10 +1007,10 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 	return flushedRes
 }
 
-const evalBash = (userinput: string): BashResult => {
+const evalBash = (userinput: string): BashResultIoFlushed => {
 	const hardcode = hardcodetBashReply(userinput)
 	if(hardcode !== null) {
-		return hardcode
+		return flushBashIo(hardcode)
 	}
 	dbgPrint('-----------------------------')
 	dbgPrint(`eval: ${userinput}`)
@@ -1021,7 +1034,7 @@ const evalBash = (userinput: string): BashResult => {
 	// console.log(`[bash][worldsplit] ${userinput} -> ${splitWords}`)
 	if (typeof splitWords === 'string' || splitWords instanceof String) {
 		// the toString() is just here to please typescript
-		return { stdout: '', stderr: splitWords.toString(), exitCode: 1 }
+		return flushBashIo({ stdout: '', stderr: splitWords.toString(), exitCode: 1 })
 	}
 
 	// pipes or redirects
@@ -1045,9 +1058,25 @@ const evalBash = (userinput: string): BashResult => {
 				pipeSyntaxError = "-bash: syntax error near unexpected token `newline'"
 				return
 			}
+
+			const outfile = rightWords[0]
+
+			// TODO: check outfile for magic names such as
+			// 1,2,3 to redirect stdout to stderr etc
+			// /dev/null etc
+
+			const [abspath, folder, filename] = pathInfo(outfile)			
+			if(isDir(abspath)) {
+				pipeSyntaxError = `-bash: ${outfile}: Is a directory`
+				return
+			} else if (!isDir(folder)) {
+				pipeSyntaxError = `-bash: ${outfile}: No such file or directory`
+				return
+			}
+
 			glbBs.stdoutFileDescriptior.stdIo = null
 			glbBs.stdoutFileDescriptior.append = true
-			glbBs.stdoutFileDescriptior.outfile = rightWords[0]
+			glbBs.stdoutFileDescriptior.outfile = abspath
 
 			delSplitWordIndecies.push(iteratedSplitWords - 1)
 			delSplitWordIndecies.push(iteratedSplitWords)
@@ -1076,20 +1105,20 @@ const evalBash = (userinput: string): BashResult => {
 		}
 	})
 	if (pipeSyntaxError) {
-		return { stdout: '', stderr: pipeSyntaxError, exitCode: 2 }
+		return flushBashIo({ stdout: '', stderr: pipeSyntaxError, exitCode: 2 })
 	}
 	if (recurseSplit !== null) {
 		return recurseSplit
 	}
-	console.log("before del")
-	console.log(splitWords)
+	// console.log("before del")
+	// console.log(splitWords)
 	let deletionOffset = 0
 	delSplitWordIndecies.forEach((delIndex) => {
 		splitWords.splice(delIndex - deletionOffset, 1)
 		deletionOffset += 1
 	})
-	console.log("after del")
-	console.log(splitWords)
+	// console.log("after del")
+	// console.log(splitWords)
 
 	let stringError = ''
 	const expandedWords = splitWords.map((word) => {
@@ -1103,11 +1132,11 @@ const evalBash = (userinput: string): BashResult => {
 		return res.stdout
 	})
 	if (stringError) {
-		return { stdout: '', stderr: stringError, exitCode: 1 }
+		return flushBashIo({ stdout: '', stderr: stringError, exitCode: 1 })
 	}
 	const cmd = expandedWords.shift()
 	if (!cmd) {
-		return { stdout: '', stderr: 'internal error 1812', exitCode: 1812 }
+		return flushBashIo({ stdout: '', stderr: 'internal error 1812', exitCode: 1812 })
 	}
 	const args = expandedWords
 
@@ -1116,7 +1145,7 @@ const evalBash = (userinput: string): BashResult => {
 	if(isVarAssign) {
 		if(!args || args.length === 0) {
 			assignVariable(cmd)
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		} else {
 			// TODO: assign temp env var
 			// but its not a tmp var if no command follows but multiple vars are assigned
@@ -1137,19 +1166,19 @@ const evalBash = (userinput: string): BashResult => {
 	}
 
 	if (cmd === 'uname' && args[0] === '-a') {
-		return { stdout: 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux', stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux', stderr: '', exitCode: 0 })
 	} else if (cmd === 'mkdir') {
 		const path = args[0]
 		const [abspath, folder, filename] = pathInfo(path)
 		const realpath = `${folder}/${filename}`
 		if(getPathType(realpath) !== null) {
-			return { stdout: '', stderr: `mkdir: cannot create directory ‘${path}’: File exists`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `mkdir: cannot create directory ‘${path}’: File exists`, exitCode: 1 /* TODO made up */ })
 		}
 		const ioError = CreateFolder(abspath)
 		if (ioError === null) {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
-		return { stdout: '', stderr: `mkdir: cannot create file ‘${path}’: ${ioError}`, exitCode: 1 /* TODO made up */ }
+		return flushBashIo({ stdout: '', stderr: `mkdir: cannot create file ‘${path}’: ${ioError}`, exitCode: 1 /* TODO made up */ })
 	} else if (cmd === 'touch') {
 		const path = args[0]
 		const [abspath, folder, filename] = pathInfo(path)
@@ -1157,45 +1186,45 @@ const evalBash = (userinput: string): BashResult => {
 			// touch just pokes the file
 			// if we intoduce dates we should update last modified
 			// here
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		if(!isDir(folder)) {
-			return { stdout: '', stderr: `touch: cannot touch '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `touch: cannot touch '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ })
 		}
 		const ioError = createFileWithContent(abspath, '')
 		if(ioError === null) {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
-		return { stdout: '', stderr: ioError, exitCode: 1 }
+		return flushBashIo({ stdout: '', stderr: ioError, exitCode: 1 })
 	} else if (cmd === 'uname' && args[0] === '-r') {
-		return { stdout: '5.10.103-v7l+', stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: '5.10.103-v7l+', stderr: '', exitCode: 0 })
 	} else if (cmd === 'sudo' || cmd === '/usr/bin/sudo') {
-		return { stdout: 'sudo: a password is required', stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: '', stderr: 'sudo: a password is required', exitCode: 0 })
 	} else if (cmd === 'apt' || cmd === '/usr/bin/apt') {
-		return {
+		return flushBashIo({
 			stdout: [
 				"E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)",
 				"E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?"
 			].join('\n'),
 			stderr: '',
 			exitCode: 100 // verified
-		}
+		})
 	} else if (cmd === 'cd') {
 		if (args[0] === '.') {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		if (args.length === 0) {
 			glbBs.vars['PWD'] = '/home/pi'
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		if (args[0][0] == '-') {
-			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ })
 		}
 		let path = args[0]
 		if(/\./.test(path) && path !== '..') {
 			// TODO: support ../ and ./ and foo/../../bar paths
 			console.log('rel path not supportede')
-			return { stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ })
 		}
 		const [abspath, folder, filename] = pathInfo(path)
 		if (isDir(abspath)) {
@@ -1203,20 +1232,20 @@ const evalBash = (userinput: string): BashResult => {
 				!abspath.startsWith('/home/pi/') &&
 				!['/', '/tmp', '/home/pi', '/home'].includes(abspath)) {
 				console.log(`illegal abs path '${abspath}'`)
-				return { stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ }
+				return flushBashIo({ stdout: '', stderr: `-bash: cd: ${path}: Permission denied`, exitCode: 1 /* TODO made up */ })
 			}
 			glbBs.vars['PWD'] = abspath
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		} else if (isFile(abspath)) {
-			return { stdout: '', stderr: `-bash: cd: ${path}: Not a directory`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `-bash: cd: ${path}: Not a directory`, exitCode: 1 /* TODO made up */ })
 		} else if (isDir(folder)) {
-			return { stdout: '', stderr: `-bash: cd: ${path}: No such file or directory`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `-bash: cd: ${path}: No such file or directory`, exitCode: 1 /* TODO made up */ })
 		}
 		console.log(`fallback because abspath=${abspath} dir=${isDir(abspath)}`)
-		return { stdout: '', stderr: `-bash: cd: ${args[0]}: Permission denied`, exitCode: 1 /* TODO made up */ }
+		return flushBashIo({ stdout: '', stderr: `-bash: cd: ${args[0]}: Permission denied`, exitCode: 1 /* TODO made up */ })
 	} else if (cmd === 'kill') {
 		if (args.length === 0) {
-			return { stdout: 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', stderr: '', exitCode: 0 })
 		}
 		if (args[0] === '-9') {
 			args.shift()
@@ -1227,17 +1256,17 @@ const evalBash = (userinput: string): BashResult => {
 			killAll = true
 		}
 		if(killAll) {
-			return { stdout: 'bash error', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: 'bash error', stderr: '', exitCode: 0 })
 		}
 		const pid = args[0]
 		if(pid === getCurrentPid() || pid === getParentPid()) {
-			return { stdout: 'bash error', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: 'bash error', stderr: '', exitCode: 0 })
 		}
 		const pidInt = parseInt(pid, 10)
 		if(pidInt < 20000) {
-			return { stdout: '', stderr: `-bash: kill: (${pid}) - Operation not permitted`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `-bash: kill: (${pid}) - Operation not permitted`, exitCode: 1 /* TODO made up */ })
 		}
-		return { stdout: '', stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 	} else if (cmd === 'echo') {
 		if (args[0] === '-n' || args[0] === '-e') {
 			args.shift()
@@ -1251,30 +1280,30 @@ const evalBash = (userinput: string): BashResult => {
 			const outfile = m[3]
 			// null random urandom zero etc
 			if(outfile.startsWith('/dev/')) {
-				return { stdout: '', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 			}
 			const [abspath, _folder, _filename] = pathInfo(outfile)
 			const outfileHandle = getFile(abspath)
 			if(!outfileHandle) {
 				const ioError = createFileWithContent(abspath, text)
 				if(ioError === null) {
-					return { stdout: '', stderr: '', exitCode: 0 }
+					return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 				}
-				return { stdout: '', stderr: ioError, exitCode: 1 }
+				return flushBashIo({ stdout: '', stderr: ioError, exitCode: 1 })
 			}
 			if(outfileHandle.type === 'd') {
-				return { stdout: '', stderr: `-bash: ${outfile}: Is a directory`, exitCode: 1 /* TODO made up */ }
+				return flushBashIo({ stdout: '', stderr: `-bash: ${outfile}: Is a directory`, exitCode: 1 /* TODO made up */ })
 			}
 			const ioError = appendToFileContent(abspath, text)
 			if(ioError === null) {
-				return { stdout: '', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 			}
-			return { stdout: '', stderr: ioError, exitCode: 1 }
+			return flushBashIo({ stdout: '', stderr: ioError, exitCode: 1 })
 		} else {
 			// console.log(`redirect regex did not match inout=${msg}`)
 			// console.log(`msg=${msg} regex=${redirectRegex.source}`)
 		}
-		return { stdout: msg, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'git') {
 		const helptxt = [
 			'usage: git [--version] [--help] [-C <path>] [-c <name>=<value>]',
@@ -1284,7 +1313,7 @@ const evalBash = (userinput: string): BashResult => {
 			'	<command> [<args>]'
 		].join('\n')
 		if(args.length === 0) {
-			return { stdout: helptxt, stderr: '', exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: helptxt, stderr: '', exitCode: 1 /* verified */ })
 		}
 		if(['--recursive', '-v', '--verbose', '--force', '-f', '--no-pager', '--bare', '--paginate'].includes(args[0])) {
 			args.shift()
@@ -1295,7 +1324,7 @@ const evalBash = (userinput: string): BashResult => {
 				args.shift()
 			}
 			if(args[0][0] === '-') {
-				return { stdout: '', stderr: `error: unknown option \`${args[0]}'\n${helptxt}`, exitCode: 1 /* TODO made up */ }
+				return flushBashIo({ stdout: '', stderr: `error: unknown option \`${args[0]}'\n${helptxt}`, exitCode: 1 /* TODO made up */ })
 			}
 			const url = args[0]
 			// https://github.com/foo/bar
@@ -1307,7 +1336,7 @@ const evalBash = (userinput: string): BashResult => {
 				const basename = folders[folders.length - 1]
 				const [abspath, folder, filename] = pathInfo(basename)
 				if(isDirOrFile(abspath)) {
-					return { stdout: '', stderr: `fatal: destination path '${basename}' already exists and is not an empty directory.`, exitCode: 1 /* TODO made up */ }
+					return flushBashIo({ stdout: '', stderr: `fatal: destination path '${basename}' already exists and is not an empty directory.`, exitCode: 1 /* TODO made up */ })
 				}
 				let ioError = CreateFolder(basename)
 				if(ioError === null) { ioError = createFileWithContent(`${basename}/README.md`, 'this is the readme'); }
@@ -1324,7 +1353,7 @@ const evalBash = (userinput: string): BashResult => {
 						'filename : No space left on device',
 						'fatal: failed to write object fatal: unpack-objects failed'
 					].join('\n')
-					return { stdout: '', stderr: out, exitCode: 1 }
+					return flushBashIo({ stdout: '', stderr: out, exitCode: 1 })
 				}
 				const out = [
 					`Cloning into '${basename}'...`,
@@ -1335,27 +1364,27 @@ const evalBash = (userinput: string): BashResult => {
 					'Receiving objects: 100% (2483/2483), 347.08 KiB | 1.14 MiB/s, done.',
 					'Resolving deltas: 100% (1775/1775), done.'
 				].join('\n')
-				return { stdout: out, stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: out, stderr: '', exitCode: 0 })
 			} else {
-				return { stdout: '', stderr: `fatal: repository '${url}' does not exist`, exitCode: 1 /* TODO made up */ }
+				return flushBashIo({ stdout: '', stderr: `fatal: repository '${url}' does not exist`, exitCode: 1 /* TODO made up */ })
 			}
 		} else if(args[0] === 'status') {
-			return { stdout: '', stderr: 'fatal: not a git repository (or any of the parent directories): .git', exitCode: 128 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: 'fatal: not a git repository (or any of the parent directories): .git', exitCode: 128 /* verified */ })
 		} else if(args[0] === '--help') {
-			return { stdout: helptxt, stderr: '', exitCode: 0 /* verified */ }
+			return flushBashIo({ stdout: helptxt, stderr: '', exitCode: 0 /* verified */ })
 		} else {
-			return { stdout: '', stderr: `git: '${args[0]}' is not a git command. See 'git --help'.`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `git: '${args[0]}' is not a git command. See 'git --help'.`, exitCode: 1 /* TODO made up */ })
 		}
 	} else if (cmd === 'shutdown') {
 		if(args[0] === '-c') {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		if(args[0] === 'now') {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
-		return { stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 })
 	} else if (cmd === 'dmesg') {
-		return { stdout: '', stderr: 'dmesg: read kernel buffer failed: Operation not permitted', exitCode: 1 /* verified */ }
+		return flushBashIo({ stdout: '', stderr: 'dmesg: read kernel buffer failed: Operation not permitted', exitCode: 1 /* verified */ })
 	} else if (cmd === 'reboot') {
 		const out = [
 			'Failed to set wall message, ignoring: Interactive authentication required.',
@@ -1363,7 +1392,7 @@ const evalBash = (userinput: string): BashResult => {
 			'Failed to open initctl fifo: Permission denied',
 			'Failed to talk to init daemon.'
 		].join('\n')
-		return { stdout: '', stderr: out, exitCode: 1 /* verified */ }
+		return flushBashIo({ stdout: '', stderr: out, exitCode: 1 /* verified */ })
 	} else if (cmd === 'ps') {
 		const pid = !parseInt(getCurrentPid(), 10) ? 755767 : parseInt(getCurrentPid(), 10)
 		const out = [
@@ -1371,62 +1400,62 @@ const evalBash = (userinput: string): BashResult => {
 			`${pid} pts/1    00:00:00 ${getCurrentShellShort()}`,
 			`${pid + Math.floor(Math.random() * 500)} pts/1    00:00:00 ps`
 		].join('\n')
-		return { stdout: out, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: out, stderr: '', exitCode: 0 })
 	} else if (cmd === 'hostname') {
 		// technically would reboot
 		// to update actual hostname
 		// instead of just reading the var
-		return { stdout: glbBs.vars['HOSTNAME'], stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: glbBs.vars['HOSTNAME'], stderr: '', exitCode: 0 })
 	} else if (cmd === 'command') {
 		if (args[0] === '-v') {
 			args.shift()
 		} else {
 			// saying just command without -v basically runs the command
 			// could be done with recursion
-			return { stdout: '', stderr: 'interal error', exitCode: 7812 }
+			return flushBashIo({ stdout: '', stderr: 'interal error', exitCode: 7812 })
 		}
 		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
-			return { stdout: '', stderr: '', exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 1 /* verified */ })
 		}
-		return { stdout: match, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: match, stderr: '', exitCode: 0 })
 	} else if (cmd === 'type') {
 		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
-			return { stdout: '', stderr: `-bash: type: ${check}: not found`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `-bash: type: ${check}: not found`, exitCode: 1 /* TODO made up */ })
 		}
 		const [abspath, folder, filename] = pathInfo(match)
-		return { stdout: '', stderr: `${check} is hashed (${abspath})`, exitCode: 1 /* TODO made up */ }
+		return flushBashIo({ stdout: '', stderr: `${check} is hashed (${abspath})`, exitCode: 1 /* TODO made up */ })
 	} else if (cmd === 'which') {
 		const check = args[0]
 		const match = cmdInUnixPath(check)
 		if (!match) {
-			return { stdout: '', stderr: `which: no ${check} in (${glbBs.vars['PATH']})`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `which: no ${check} in (${glbBs.vars['PATH']})`, exitCode: 1 /* TODO made up */ })
 		}
 		const [abspath, folder, filename] = pathInfo(match)
-		return { stdout: abspath, stderr: '', exitCode: 0 /* TODO made up */ }
+		return flushBashIo({ stdout: abspath, stderr: '', exitCode: 0 /* TODO made up */ })
 	} else if (cmd === 'whoami') {
-		return { stdout: getCurrentUnixUser(), stderr: '', exitCode: 0 /* TODO made up */ }
+		return flushBashIo({ stdout: getCurrentUnixUser(), stderr: '', exitCode: 0 /* TODO made up */ })
 	} else if (cmd === 'chmod') {
 		const expandedOptArg = args[0]
 		args.shift()
 		const expandedFileArg = args[0]
 		if(!expandedFileArg) {
-			return { stdout: '', stderr: `chmod: missing operand after ‘${expandedOptArg}’`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `chmod: missing operand after ‘${expandedOptArg}’`, exitCode: 1 /* TODO made up */ })
 		}
 		const [abspath, folder, filename] = pathInfo(expandedFileArg)
 		const file = getFile(abspath)
 		if (!file) {
-			return { stdout: '', stderr: `chmod: cannot access '${expandedFileArg}': No such file or directory`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `chmod: cannot access '${expandedFileArg}': No such file or directory`, exitCode: 1 /* TODO made up */ })
 		}
 		if (expandedOptArg === '777') {
 			if(!file.perms) {
 				file.perms = '-rw-r--r--'
 			}
 			file.perms = `${file.type === 'd' ? 'd' : '-'}rwxrwxrwx`
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		const m = expandedOptArg.match(new RegExp('(.*)?([\\+\\-])(.*)'))
 		if(m) {
@@ -1449,30 +1478,29 @@ const evalBash = (userinput: string): BashResult => {
 				(isAdd ? 'x' : '-')
 			file.perms = newperms
 			// console.log(`matched exec regex and set file perms to newperms=${newperms} file.perms=${file.perms} add=${isAdd}`)
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		console.log("warning fallback fileperms unkonwn opt" + expandedOptArg)
 		// failed to parse perms set random default xd
 		file.perms = '-rw-r--r--'
 		file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
-		return { stdout: '', stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 	} else if (cmd === 'cat') {
 		const path = args[0]
 		// good ol bash word split
 		const [abspath, folder, filename] = pathInfo(path)
 		const file = getFile(abspath)
 		if (!file) {
-			return { stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ })
 		}
 		if(file.type === 'd') {
-			return { stdout: '', stderr: `cat: ${path}: Is a directory`, exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: `cat: ${path}: Is a directory`, exitCode: 1 /* verified */ })
 		}
-		if(file.content) {
-			return { stdout: file.content, stderr: '', exitCode: 0 }
-		}
+		const content = file.content ? file.content : ''
+		return flushBashIo({ stdout: content, stderr: '', exitCode: 0 })
 	} else if (cmd === 'printf') {
 		if (args.length === 0) {
-			return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 })
 		}
 		let noArgs = false
 		if (args[0] === '--') {
@@ -1483,13 +1511,13 @@ const evalBash = (userinput: string): BashResult => {
 			args.shift()
 			const variable = args.shift()
 			if (!variable) {
-				return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 })
 			}
 			if(!/^[a-zA-Z_]+[a-zA-Z0-9_]*/.test(variable)) {
-				return { stdout: '', stderr: `-bash: printf: \`${variable}': not a valid identifier`, exitCode: 1 /* TODO */ }
+				return flushBashIo({ stdout: '', stderr: `-bash: printf: \`${variable}': not a valid identifier`, exitCode: 1 /* TODO */ })
 			}
 			if(args.length === 0) {
-				return { stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 })
 			}
 			let msg = args[0]
 			args.shift()
@@ -1498,20 +1526,20 @@ const evalBash = (userinput: string): BashResult => {
 			})
 			// console.log(`set var ${variable} to ${msg} using printf`)
 			glbBs.vars[variable] = msg
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
 		if(!args[0]) {
-			return { stdout: '', stderr: 'internal error 420', exitCode: 420 }
+			return flushBashIo({ stdout: '', stderr: 'internal error 420', exitCode: 420 })
 		}
 		if (noArgs && args[0][0] == '-') {
-			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO */ }
+			return flushBashIo({ stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO */ })
 		}
 		let msg = args[0]
 		args.shift()
 		args.forEach((arg) => {
 			msg = msg.replace(/%[sib]/, arg)
 		})
-		return { stdout: msg, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'ls') {
 		let argFolder = null
 		if(!args[0]) {
@@ -1548,16 +1576,16 @@ const evalBash = (userinput: string): BashResult => {
 			const out = files.map((file) => {
 				return printFile(file, flagList)
 			}).sort().join('\n')
-			return { stdout: out, stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: out, stderr: '', exitCode: 0 })
 		} else if (isFile(abspath)) {
 			const file = getFile(abspath)
 			if(!file) {
 				console.log("wtf")
-				return { stdout: 'bash error', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: 'bash error', stderr: '', exitCode: 0 })
 			}
-			return { stdout: printFile(file, flagList), stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: printFile(file, flagList), stderr: '', exitCode: 0 })
 		} else {
-			return { stdout: '', stderr: `ls: cannot access '${abspath}': Permission denied`, exitCode: 2 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: `ls: cannot access '${abspath}': Permission denied`, exitCode: 2 /* verified */ })
 		}
 	} else if (cmd === 'df') {
 		const used = getDiskUsage()
@@ -1576,10 +1604,10 @@ const evalBash = (userinput: string): BashResult => {
 			`/dev/mmcblk0p6    258094    49323    208772  20% /boot`,
 			`tmpfs             808828       24    808804   1% /run/user/1001`
 		].join('\n')
-		return { stdout: out, stderr: '', exitCode: 0 }
+		return flushBashIo({ stdout: out, stderr: '', exitCode: 0 })
 	} else if (cmd === 'rm') {
 		if (args.length === 0) {
-			return { stdout: 'rm: missing operand', stderr: '', exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: 'rm: missing operand', stderr: '', exitCode: 1 /* verified */ })
 		}
 		let argRecurse = false
 		if (args[0] === '-r' || args[0] === '-rf') {
@@ -1587,33 +1615,33 @@ const evalBash = (userinput: string): BashResult => {
 			args.shift()
 		}
 		if (args[0][0] == '-') {
-			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* verified */ }
+			return flushBashIo({ stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* verified */ })
 		}
 		let path = args[0]
 		const [abspath, folder, filename] = pathInfo(path)
 		if(unixDelFile(path)) {
-			return { stdout: '', stderr: '', exitCode: 0 }
+			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		} else if(isDir(abspath)) {
 			if(argRecurse) {
 				glbBs.fs[abspath] = []
-				return { stdout: '', stderr: '', exitCode: 0 }
+				return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 			} else {
-				return { stdout: '', stderr: `rm: cannot remove '${path}': Is a directory`, exitCode: 1 /* TODO made up */ }
+				return flushBashIo({ stdout: '', stderr: `rm: cannot remove '${path}': Is a directory`, exitCode: 1 /* TODO made up */ })
 			}
 		}
 		if (path[0] === '/') {
-			return { stdout: '', stderr: `rm: cannot remove '${path}': Permission denied`, exitCode: 1 /* TODO made up */ }
+			return flushBashIo({ stdout: '', stderr: `rm: cannot remove '${path}': Permission denied`, exitCode: 1 /* TODO made up */ })
 		}
-		return { stdout: '', stderr: `rm: cannot remove '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ }
+		return flushBashIo({ stdout: '', stderr: `rm: cannot remove '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ })
 		// return "rm: remove write-protected regular fipytlehKilledon error"
 	} else if (cmd === 'ls') {
 		// we handle ls else where
 	} else if (!cmdInUnixPath(cmd)) {
-		return { stdout: '', stderr: `bash: ${cmd}: command not found`, exitCode: 1 /* TODO made up */ }
+		return flushBashIo({ stdout: '', stderr: `bash: ${cmd}: command not found`, exitCode: 1 /* TODO made up */ })
 	}
 	// this says invalid option on every command
 	// } else if (args[0]) {
-	// 	return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ }
+	// 	return flushBashIo({ stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO made up */ })
 	// }
-	return { stdout: '', stderr: 'unsafe bash', exitCode: 1 }
+	return flushBashIo({ stdout: '', stderr: 'unsafe bash', exitCode: 1 })
 }
