@@ -2,16 +2,29 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
+// assert.equal(fakeBash('echo hi >> bar.txt'), '')
+// process.exit(0)
+
+assert.equal(fakeBash('foo >> '), "-bash: syntax error near unexpected token `newline'")
+
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo ; bar'), ["foo", ";", "bar"])
 
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;bar'), ["foo", ";", "bar"])
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;'), ["foo", ";"])
+
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('ls>a'), ["ls", ">", "a"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('willerror &>/dev/null'), ["willerror", "&>", "/dev/null"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('echo append >> file.txt'), ["echo", "append", ">>", "file.txt"])
 
 assert.equal(fakeBash('foo ; bar'), 'bash: foo: command not found\nbash: bar: command not found')
 
 assert.equal(fakeBash('foo;bar'), 'bash: foo: command not found\nbash: bar: command not found')
 assert.equal(fakeBash('foo; bar'), 'bash: foo: command not found\nbash: bar: command not found')
 assert.equal(fakeBash('"foo";bar'), 'bash: foo: command not found\nbash: bar: command not found')
+
+assert.equal(fakeBash('echo ";"'), ";")
+assert.equal(fakeBash("echo ';'"), ";")
+assert.equal(fakeBash("echo ';';"), ";")
 
 assert.equal(fakeBash(';;'), "-bash: syntax error near unexpected token `;'")
 assert.equal(fakeBash('ls;;'), "-bash: syntax error near unexpected token `;'")

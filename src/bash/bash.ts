@@ -9,10 +9,25 @@ interface UnixFileSystem {
 	[index: string]: UnixFile[]
 }
 
+enum StdIo {
+	stdin,
+	stdout,
+	stderr
+}
+
+// i should probably do some research on how they actually look like xd
+interface UnixFileDescriptor {
+	stdIo: StdIo | null,
+	append: boolean,
+	id: number,
+	outfile: string
+}
+
 interface BashState {
     fs: UnixFileSystem,
     vars: {[key: string]: string},
-    tmpLineEnv: {[key: string]: string}
+    tmpLineEnv: {[key: string]: string},
+	stdoutFileDescriptior: UnixFileDescriptor
 }
 
 interface BashResult {
@@ -21,8 +36,18 @@ interface BashResult {
     exitCode: number
 }
 
-interface BashParseResult {
+interface BashResultIoFlushed {
     stdout: string,
+    stderr: string,
+    exitCode: number,
+	// fake field to get typescript yell at me
+	// if i forgot to flush io before return
+	// what a hack xd
+	ioFlushed: true
+}
+
+interface BashParseResult {
+	stdout: string,
     stderr: string
 }
 
@@ -44,7 +69,13 @@ export const glbBs: BashState = {
 		echo $foo # => null
 		foo=bar node -e "console.log(process.env.foo)" # => bar
     */
-    tmpLineEnv: {}
+    tmpLineEnv: {},
+	stdoutFileDescriptior: {
+		stdIo: StdIo.stdin,
+		id: StdIo.stdin,
+		append: false,
+		outfile: ''
+	}
 }
 
 // TODO:
@@ -60,6 +91,7 @@ const getBashVar = (variable: string): string => {
 }
 
 glbBs.vars['?'] = '0'
+glbBs.vars['0'] = '-bash'
 glbBs.vars['$'] = '24410'
 glbBs.vars['BASHPID'] = glbBs.vars['$']
 glbBs.vars['PPID'] = '24411'
@@ -334,6 +366,7 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'env', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 glbBs.fs['/usr/lib'] = [
 	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
@@ -363,6 +396,7 @@ glbBs.fs['/bin'] = [
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'env', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 glbBs.fs[glbBs.vars['PWD']] = [
 	{name: "env.example", type: 'f', perms: '-rw-r--r--'},
@@ -622,8 +656,16 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 	let quote: string | null = null
 	let wordBeforeLastSemicolon = ''
 	let parseError = ''
-	text.split('').forEach((letter) => {
+	let letterIndex = -1
+	let skipLetter = false
+	const letters = text.split('')
+	letters.forEach((letter) => {
 		if(parseError) {
+			return
+		}
+		letterIndex += 1
+		if (skipLetter) {
+			skipLetter = false
 			return
 		}
 		// console.log(`[bash][word] word=${word} words=${words} letter=${letter} quote=${quote}`)
@@ -633,6 +675,23 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 		} else if (quote === letter) { // close quote
 			quote = null
 			word += letter
+		} else if (letter === '>' && !quote) {
+			const nextLetter = letters[letterIndex + 1]
+			if (nextLetter === '>') {
+				skipLetter = true
+				if(word) {
+					words.push(word)
+				}
+				words.push('>>')
+			} else if(word === '&') {
+				words.push('&>')
+			} else {
+				if(word) {
+					words.push(word)
+				}
+				words.push('>')
+			}
+			word = ''
 		} else if (letter === ';' && !quote) {
 			if(wordBeforeLastSemicolon === '') {
 				parseError = "-bash: syntax error near unexpected token `;'"
@@ -917,6 +976,24 @@ const mergeStringNewline = (string1: string, string2: string): string => {
 	return sum + string2
 }
 
+const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
+	const flushedRes: BashResultIoFlushed = {
+		stdout: bashRes.stdout,
+		stderr: bashRes.stderr,
+		exitCode: bashRes.exitCode,
+		ioFlushed: true
+	}
+	if (glbBs.stdoutFileDescriptior.stdIo === null && glbBs.stdoutFileDescriptior.outfile != '') {
+		appendToFileContent(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
+		flushedRes.stdout = ''
+	}
+
+	glbBs.stdoutFileDescriptior.stdIo = StdIo.stdout
+	glbBs.stdoutFileDescriptior.outfile = ''
+
+	return flushedRes
+}
+
 const evalBash = (userinput: string): BashResult => {
 	const hardcode = hardcodetBashReply(userinput)
 	if(hardcode !== null) {
@@ -950,16 +1027,43 @@ const evalBash = (userinput: string): BashResult => {
 	// pipes or redirects
 	let iteratedSplitWords = 0
 	let recurseSplit: BashResult | null = null
+	const delSplitWordIndecies: number[] = []
+	let pipeSyntaxError = ''
 	splitWords.forEach((word) => {
+		if (pipeSyntaxError) {
+			return
+		}
 		iteratedSplitWords += 1
-		const unquotedWord = removeBashQuotes(word)
+		// const unquotedWord = removeBashQuotes(word)
 		// console.log(word)
-		if (unquotedWord === ';') {
-			const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
-			const rightWords = splitWords.slice(iteratedSplitWords)
+
+		const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
+		const rightWords = splitWords.slice(iteratedSplitWords)
+		if (word === '>>') {
+			dbgPrintFs(`[bash][redirect] got >> file append left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+			if (rightWords.length === 0) {
+				pipeSyntaxError = "-bash: syntax error near unexpected token `newline'"
+				return
+			}
+			glbBs.stdoutFileDescriptior.stdIo = null
+			glbBs.stdoutFileDescriptior.append = true
+			glbBs.stdoutFileDescriptior.outfile = rightWords[0]
+
+			delSplitWordIndecies.push(iteratedSplitWords - 1)
+			delSplitWordIndecies.push(iteratedSplitWords)
+		} else if (word === ';') {
+			// reset redirects on new command
+			glbBs.stdoutFileDescriptior.stdIo = StdIo.stdout
+			glbBs.stdoutFileDescriptior.outfile = ''
+
 			// console.log(leftWords)
 			// console.log(rightWords)
 			dbgPrint(`[bash][splitcmds] got semicolon left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+			// do not evaluate empty if semicolon at the end
+			if (rightWords.length === 0) {
+				recurseSplit = evalBash(leftWords.join(' '))
+				return
+			}
 			const leftResult = evalBash(leftWords.join(' '))
 			const rightResult = evalBash(rightWords.join(' '))
 			// console.log(leftResult)
@@ -971,9 +1075,21 @@ const evalBash = (userinput: string): BashResult => {
 			}
 		}
 	})
+	if (pipeSyntaxError) {
+		return { stdout: '', stderr: pipeSyntaxError, exitCode: 2 }
+	}
 	if (recurseSplit !== null) {
 		return recurseSplit
 	}
+	console.log("before del")
+	console.log(splitWords)
+	let deletionOffset = 0
+	delSplitWordIndecies.forEach((delIndex) => {
+		splitWords.splice(delIndex - deletionOffset, 1)
+		deletionOffset += 1
+	})
+	console.log("after del")
+	console.log(splitWords)
 
 	let stringError = ''
 	const expandedWords = splitWords.map((word) => {
@@ -991,7 +1107,7 @@ const evalBash = (userinput: string): BashResult => {
 	}
 	const cmd = expandedWords.shift()
 	if (!cmd) {
-		return { stdout: '', stderr: 'internal error', exitCode: 1812 }
+		return { stdout: '', stderr: 'internal error 1812', exitCode: 1812 }
 	}
 	const args = expandedWords
 
@@ -1385,7 +1501,7 @@ const evalBash = (userinput: string): BashResult => {
 			return { stdout: '', stderr: '', exitCode: 0 }
 		}
 		if(!args[0]) {
-			return { stdout: '', stderr: 'internal error', exitCode: 420 }
+			return { stdout: '', stderr: 'internal error 420', exitCode: 420 }
 		}
 		if (noArgs && args[0][0] == '-') {
 			return { stdout: '', stderr: `${cmd}: invalid option -- '${args[0]}'`, exitCode: 1 /* TODO */ }
