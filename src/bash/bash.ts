@@ -1534,6 +1534,93 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		file.perms = '-rw-r--r--'
 		file.perms = `${file.type === 'd' ? 'd' : '-'}rw-r--r--`
 		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
+	} else if (cmd === 'head') {
+		let path: string | null | undefined = null
+		let lines: number = 10
+		let endOfArgs = false
+		while (args.length > 0) {
+			const arg = args.shift()
+			if (arg === undefined || arg === null) {
+				break
+			}
+			if (arg === '--version') {
+				const versiontxt = 'head (GNU coreutils) 9.3\n' +
+					'Copyright (C) 2023 Free Software Foundation, Inc.\n' +
+					'License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n' +
+					'This is free software: you are free to change and redistribute it.\n' +
+					'There is NO WARRANTY, to the extent permitted by law.\n' +
+					'\n' +
+					'Written by David MacKenzie and Jim Meyering.\n'
+				return flushBashIo({ stdout: versiontxt, stderr: '', exitCode: 0 /* verified */ })
+			} else if (arg === '--help') {
+				const helptxt = "Usage: head [OPTION]... [FILE]...\n" +
+								"Print the first 10 lines of each FILE to standard output.\n" +
+								"With more than one FILE, precede each with a header giving the file name.\n" +
+								"\n" +
+								"With no FILE, or when FILE is -, read standard input.\n" +
+								"\n" +
+								"Mandatory arguments to long options are mandatory for short options too.\n" +
+								"  -c, --bytes=[-]NUM       print the first NUM bytes of each file;\n" +
+								"                             with the leading '-', print all but the last\n" +
+								"                             NUM bytes of each file\n" +
+								"  -n, --lines=[-]NUM       print the first NUM lines instead of the first 10;\n" +
+								"                             with the leading '-', print all but the last\n" +
+								"                             NUM lines of each file\n" +
+								"  -q, --quiet, --silent    never print headers giving file names\n" +
+								"  -v, --verbose            always print headers giving file names\n" +
+								"  -z, --zero-terminated    line delimiter is NUL, not newline\n" +
+								"      --help        display this help and exit\n" +
+								"      --version     output version information and exit\n" +
+								"\n" +
+								"NUM may have a multiplier suffix:\n" +
+								"b 512, kB 1000, K 1024, MB 1000*1000, M 1024*1024,\n" +
+								"GB 1000*1000*1000, G 1024*1024*1024, and so on for T, P, E, Z, Y, R, Q.\n" +
+								"Binary prefixes can be used, too: KiB=K, MiB=M, and so on.\n" +
+								"\n" +
+								"GNU coreutils online help: <https://www.gnu.org/software/coreutils/>\n" +
+								"Full documentation <https://www.gnu.org/software/coreutils/head>\n" +
+								"or available locally via: info '(coreutils) head invocation'\n"
+				return flushBashIo({ stdout: helptxt, stderr: '', exitCode: 0 /* verified */ })
+			} else if (arg === '-n') {
+				const lineInp = args.shift()
+				if (lineInp) {
+					lines = parseInt(lineInp, 10)
+					if (!lines) { // NaN
+						return flushBashIo({ stdout: '', stderr: `head: invalid number of lines: ‘${lineInp}’`, exitCode: 1 /* verified */ })
+					}
+				}
+			} else if (arg === '--') {
+				endOfArgs = true
+			} else if (!endOfArgs && arg[0] === '-') {
+				const errMsg = `head: unrecognized option '${arg}'\n` +
+							   "Try 'head --help' for more information."
+				return flushBashIo({ stdout: '', stderr: errMsg, exitCode: 1 /* verified */ })
+			} else {
+				path = arg
+			}
+		}
+		let content = ''
+		if (path === undefined || path === null || path === '-') {
+			content = prevBashResult.stdout
+		} else {
+			const [abspath, folder, filename] = pathInfo(path)
+			const file = getFile(abspath)
+			if (!file) {
+				const errMsg = `head: cannot open '${path}' for reading: No such file or directory`
+				return flushBashIo({ stdout: '', stderr: errMsg, exitCode: 1 /* verified */ })
+			}
+			if(file.type === 'd') {
+				return flushBashIo({ stdout: '', stderr: `head: error reading '${path}': Is a directory`, exitCode: 1 /* verified */ })
+			}
+			content = file.content ? file.content : ''
+		}
+
+		let headed = content.split('\n').slice(0, lines).join('\n')
+		if (content.includes('\n')) {
+			headed += '\n'
+		}
+
+		return flushBashIo({ stdout: headed, stderr: '', exitCode: 0 })
 	} else if (cmd === 'cat') {
 		const path = args[0]
 		// these two bash lines are different
@@ -1542,7 +1629,6 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		if (path === undefined || path === null) {
 			return flushBashIo({ stdout: prevBashResult.stdout, stderr: '', exitCode: 0 })
 		}
-		// good ol bash word split
 		const [abspath, folder, filename] = pathInfo(path)
 		const file = getFile(abspath)
 		if (!file) {

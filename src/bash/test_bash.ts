@@ -2,6 +2,9 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
+assert.equal(fakeBash('echo -e "hi\\nho\\nha" | head -n 1'), 'hi\n')
+assert.equal(fakeBash('echo -n hi | head'), 'hi')
+
 assert.equal(fakeBash('ls | echo a'), 'a\n')
 assert.equal(fakeBash('throw | echo a'), 'a\nbash: throw: command not found\n')
 assert.equal(fakeBash('echo hi | cat'), 'hi\n')
