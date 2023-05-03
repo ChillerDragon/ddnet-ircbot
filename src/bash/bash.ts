@@ -504,7 +504,7 @@ const appendToFileContent = (path: string, text: string) => {
 	let fileHandle = getFile(abspath)
 	if (!fileHandle) {
 		dbgPrintFs(`[bash][fs] warning file not found abspath=${abspath} folder=${folder} filename=${filename}`)
-		const ioError = createFileWithContent(path, text)
+		const ioError = createOrOverwriteFileWithContent(path, text)
 		if (ioError) {
 			return ioError
 		}
@@ -529,11 +529,11 @@ const appendToFileContent = (path: string, text: string) => {
 }
 
 /*
-	createFileWithContent
+	createOrOverwriteFileWithContent
 
 	returns null or disk error string
 */
-const createFileWithContent = (path: string, text: string): string | null => {
+const createOrOverwriteFileWithContent = (path: string, text: string): string | null => {
 	const [abspath, folder, filename] = pathInfo(path)
     if(!filename) {
         console.log(`error failed to get filename path=${path}`)
@@ -541,6 +541,7 @@ const createFileWithContent = (path: string, text: string): string | null => {
     }
 	const fileHandle = getFile(abspath)
 	if (fileHandle) {
+		fileHandle.content = text
 		return null
 	}
 	if(!text) {
@@ -994,7 +995,8 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 		ioFlushed: true
 	}
 	if (glbBs.stdoutFileDescriptior.stdIo === null && glbBs.stdoutFileDescriptior.outfile != '') {
-		const ioError = appendToFileContent(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
+		const ioOp = glbBs.stdoutFileDescriptior.append ? appendToFileContent : createOrOverwriteFileWithContent
+		const ioError = ioOp(glbBs.stdoutFileDescriptior.outfile, bashRes.stdout)
 		if(ioError !== null) {
 			flushedRes.stderr = mergeStringNewline(flushedRes.stderr, ioError)
 		}
@@ -1005,6 +1007,36 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 	glbBs.stdoutFileDescriptior.outfile = ''
 
 	return flushedRes
+}
+
+const redirectToFile = (append: boolean, leftWords: string[], rightWords: string[], delSplitWordIndecies: number[], iteratedSplitWords: number): string | null => {
+	dbgPrintFs(`[bash][redirect] red to file append=${append} left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+	if (rightWords.length === 0) {
+		return "-bash: syntax error near unexpected token `newline'"
+	}
+
+	const outfile = rightWords[0]
+
+	// TODO: check outfile for magic names such as
+	// 1,2,3 to redirect stdout to stderr etc
+	// /dev/null etc
+	// /dev/udp
+	// /dev/tcp/host/port ?
+
+	const [abspath, folder, filename] = pathInfo(outfile)
+	if(isDir(abspath)) {
+		return `-bash: ${outfile}: Is a directory`
+	} else if (!isDir(folder)) {
+		return `-bash: ${outfile}: No such file or directory`
+	}
+
+	glbBs.stdoutFileDescriptior.stdIo = null
+	glbBs.stdoutFileDescriptior.append = append
+	glbBs.stdoutFileDescriptior.outfile = abspath
+
+	delSplitWordIndecies.push(iteratedSplitWords - 1)
+	delSplitWordIndecies.push(iteratedSplitWords)
+	return null
 }
 
 const evalBash = (userinput: string): BashResultIoFlushed => {
@@ -1052,34 +1084,18 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 
 		const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
 		const rightWords = splitWords.slice(iteratedSplitWords)
-		if (word === '>>') {
-			dbgPrintFs(`[bash][redirect] got >> file append left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
-			if (rightWords.length === 0) {
-				pipeSyntaxError = "-bash: syntax error near unexpected token `newline'"
-				return
+		if (word === '>') {
+			const append = false
+			const redRes = redirectToFile(append, leftWords, rightWords, delSplitWordIndecies, iteratedSplitWords)
+			if (redRes !== null) {
+				pipeSyntaxError = redRes
 			}
-
-			const outfile = rightWords[0]
-
-			// TODO: check outfile for magic names such as
-			// 1,2,3 to redirect stdout to stderr etc
-			// /dev/null etc
-
-			const [abspath, folder, filename] = pathInfo(outfile)			
-			if(isDir(abspath)) {
-				pipeSyntaxError = `-bash: ${outfile}: Is a directory`
-				return
-			} else if (!isDir(folder)) {
-				pipeSyntaxError = `-bash: ${outfile}: No such file or directory`
-				return
+		} else if (word === '>>') {
+			const append = true
+			const redRes = redirectToFile(append, leftWords, rightWords, delSplitWordIndecies, iteratedSplitWords)
+			if (redRes !== null) {
+				pipeSyntaxError = redRes
 			}
-
-			glbBs.stdoutFileDescriptior.stdIo = null
-			glbBs.stdoutFileDescriptior.append = true
-			glbBs.stdoutFileDescriptior.outfile = abspath
-
-			delSplitWordIndecies.push(iteratedSplitWords - 1)
-			delSplitWordIndecies.push(iteratedSplitWords)
 		} else if (word === ';') {
 			// reset redirects on new command
 			glbBs.stdoutFileDescriptior.stdIo = StdIo.stdout
@@ -1191,7 +1207,7 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 		if(!isDir(folder)) {
 			return flushBashIo({ stdout: '', stderr: `touch: cannot touch '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ })
 		}
-		const ioError = createFileWithContent(abspath, '')
+		const ioError = createOrOverwriteFileWithContent(abspath, '')
 		if(ioError === null) {
 			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 		}
@@ -1268,41 +1284,15 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 		}
 		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 	} else if (cmd === 'echo') {
-		if (args[0] === '-n' || args[0] === '-e') {
+		let newline = '\n'
+		if (args[0] === '-n') {
+			args.shift()
+			newline = ''
+		}
+		if (args[0] === '-e') {
 			args.shift()
 		}
-		const msg = args.join(' ')
-		const redirectRegex = new RegExp('(.*)\\s*(>+)\\s*(.*)')
-		const m = msg.match(redirectRegex) // TODO: redirect should be handled outside of bashEval
-		if(m) {
-			const text = m[1]
-			const isAppend = m[2] !== '>'
-			const outfile = m[3]
-			// null random urandom zero etc
-			if(outfile.startsWith('/dev/')) {
-				return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
-			}
-			const [abspath, _folder, _filename] = pathInfo(outfile)
-			const outfileHandle = getFile(abspath)
-			if(!outfileHandle) {
-				const ioError = createFileWithContent(abspath, text)
-				if(ioError === null) {
-					return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
-				}
-				return flushBashIo({ stdout: '', stderr: ioError, exitCode: 1 })
-			}
-			if(outfileHandle.type === 'd') {
-				return flushBashIo({ stdout: '', stderr: `-bash: ${outfile}: Is a directory`, exitCode: 1 /* TODO made up */ })
-			}
-			const ioError = appendToFileContent(abspath, text)
-			if(ioError === null) {
-				return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
-			}
-			return flushBashIo({ stdout: '', stderr: ioError, exitCode: 1 })
-		} else {
-			// console.log(`redirect regex did not match inout=${msg}`)
-			// console.log(`msg=${msg} regex=${redirectRegex.source}`)
-		}
+		const msg = args.join(' ') + newline
 		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'git') {
 		const helptxt = [
@@ -1339,8 +1329,8 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 					return flushBashIo({ stdout: '', stderr: `fatal: destination path '${basename}' already exists and is not an empty directory.`, exitCode: 1 /* TODO made up */ })
 				}
 				let ioError = CreateFolder(basename)
-				if(ioError === null) { ioError = createFileWithContent(`${basename}/README.md`, 'this is the readme'); }
-				if(ioError === null) { ioError = createFileWithContent(`${basename}/LICENSE`, 'MIT License'); }
+				if(ioError === null) { ioError = createOrOverwriteFileWithContent(`${basename}/README.md`, 'this is the readme'); }
+				if(ioError === null) { ioError = createOrOverwriteFileWithContent(`${basename}/LICENSE`, 'MIT License'); }
 				if(ioError === null) { ioError = CreateFolder(`${basename}/src`); }
 				if(ioError === null) { ioError = CreateFolder(`${basename}/.git`); }
 				if(ioError === null) { ioError = CreateFolder(`${basename}/.gitignore`); }
