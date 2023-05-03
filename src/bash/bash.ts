@@ -333,6 +333,7 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 glbBs.fs['/usr/lib'] = [
 	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
@@ -361,6 +362,7 @@ glbBs.fs['/bin'] = [
 	{name: 'shutdown', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'reboot', type: 'f', perms: '-rwxr-xr-x'},
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x'},
+	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 ]
 glbBs.fs[glbBs.vars['PWD']] = [
 	{name: "env.example", type: 'f', perms: '-rw-r--r--'},
