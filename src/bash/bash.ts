@@ -600,7 +600,7 @@ export const removeBashQuotes = (text: string): string => {
 	return stripped
 }
 
-export const bashWordSplit = (text: string): string[] | string => {
+export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | string => {
 	// simple string no quotes
 	// split on space and strip all surrounding
 	// spaces around words
@@ -611,12 +611,19 @@ export const bashWordSplit = (text: string): string[] | string => {
 	let word = ''
 	let quote: string | null = null
 	text.split('').forEach((letter) => {
-		// console.log(`word=${word} words=${words} letter=${letter} quote=${quote}`)
+		// console.log(`[bash][word] word=${word} words=${words} letter=${letter} quote=${quote}`)
 		if (["'", '"'].includes(letter) && !quote) { // open quote
 			quote = letter
+			word += letter
 		} else if (quote === letter) { // close quote
 			quote = null
+			word += letter
 		} else if (letter === ' ' && !quote) {
+			// swallow spaces
+			if(word === '') {
+				return
+			}
+			// console.log(`[bash][word] SPLIT letter=${letter} quote=${quote}`)
 			words.push(word)
 			word = ''
 		} else {
@@ -632,7 +639,7 @@ export const bashWordSplit = (text: string): string[] | string => {
 	return words
 }
 
-// console.log(bashWordSplit('"foo"'))
+// console.log(bashWordSplitKeepQuotesEatSpaces('"foo"'))
 
 // const bashVarNamePattern = '[a-zA-Z_\\?\\$]+[a-zA-Z0-9_]*'
 
@@ -885,7 +892,7 @@ const evalBash = (userinput: string): BashResult => {
 		isVarAssign = true
 	}
 
-	const splitWords = bashWordSplit(userinput)
+	const splitWords = bashWordSplitKeepQuotesEatSpaces(userinput)
 	// console.log(`[bash][worldsplit] ${userinput} -> ${splitWords}`)
 	if (typeof splitWords === 'string' || splitWords instanceof String) {
 		// the toString() is just here to please typescript

@@ -1,4 +1,4 @@
-import { fakeBash, removeBashQuotes, bashWordSplit, pathInfo, glbBs } from './bash'
+import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs } from './bash'
 
 import { strict as assert } from 'node:assert';
 
@@ -11,25 +11,31 @@ assert.equal(removeBashQuotes(`'foo'" bar"`), 'foo bar')
 assert.equal(removeBashQuotes(`hello "WO'W"`), "hello WO'W")
 assert.equal(removeBashQuotes(`hello 'WO"W'`), 'hello WO"W')
 
-assert.deepEqual(bashWordSplit('foo'), ['foo'])
-assert.deepEqual(bashWordSplit(''), [''])
-assert.deepEqual(bashWordSplit('foo bar'), ['foo', 'bar'])
-assert.deepEqual(bashWordSplit('foo           bar'), ['foo', 'bar'])
-assert.deepEqual(bashWordSplit('foo           bar baz'), ['foo', 'bar', 'baz'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo'), ['foo'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces(''), [''])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo bar'), ['foo', 'bar'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('"foo" bar'), ['"foo"', 'bar'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('"foo"                   bar'), ['"foo"', 'bar'])
 
-assert.deepEqual(bashWordSplit('"foo"'), ['foo'])
-assert.deepEqual(bashWordSplit('"foo bar"'), ['foo bar'])
-assert.deepEqual(bashWordSplit('"foo bar" baz'), ['foo bar', 'baz'])
+// assert.deepEqual(bashWordSplit('foo'), ['foo'])
+// assert.deepEqual(bashWordSplit(''), [''])
+// assert.deepEqual(bashWordSplit('foo bar'), ['foo', 'bar'])
+// assert.deepEqual(bashWordSplit('foo           bar'), ['foo', 'bar'])
+// assert.deepEqual(bashWordSplit('foo           bar baz'), ['foo', 'bar', 'baz'])
 
-assert.deepEqual(bashWordSplit('"foo"bar'), ['foobar'])
-assert.deepEqual(bashWordSplit(`"fo'o"bar`), ["fo'obar"])
-assert.deepEqual(bashWordSplit(`"fo'o"bar'`), "unexpected EOF while looking for matching `''")
-assert.deepEqual(bashWordSplit('helo"'), "unexpected EOF while looking for matching `\"'")
-assert.deepEqual(bashWordSplit('helo"world'), "unexpected EOF while looking for matching `\"'")
-assert.deepEqual(bashWordSplit('helo"world"'), ["heloworld"])
-assert.deepEqual(bashWordSplit(`helo"world" 'and fellow gamers'`), ["heloworld", "and fellow gamers"])
-assert.deepEqual(bashWordSplit(`helo"world" 'and fellow  gamers'`), ["heloworld", "and fellow  gamers"])
-assert.deepEqual(bashWordSplit(`helo"world" 'and fellow   gamers '`), ["heloworld", "and fellow   gamers "])
+// assert.deepEqual(bashWordSplit('"foo"'), ['foo'])
+// assert.deepEqual(bashWordSplit('"foo bar"'), ['foo bar'])
+// assert.deepEqual(bashWordSplit('"foo bar" baz'), ['foo bar', 'baz'])
+
+// assert.deepEqual(bashWordSplit('"foo"bar'), ['foobar'])
+// assert.deepEqual(bashWordSplit(`"fo'o"bar`), ["fo'obar"])
+// assert.deepEqual(bashWordSplit(`"fo'o"bar'`), "unexpected EOF while looking for matching `''")
+// assert.deepEqual(bashWordSplit('helo"'), "unexpected EOF while looking for matching `\"'")
+// assert.deepEqual(bashWordSplit('helo"world'), "unexpected EOF while looking for matching `\"'")
+// assert.deepEqual(bashWordSplit('helo"world"'), ["heloworld"])
+// assert.deepEqual(bashWordSplit(`helo"world" 'and fellow gamers'`), ["heloworld", "and fellow gamers"])
+// assert.deepEqual(bashWordSplit(`helo"world" 'and fellow  gamers'`), ["heloworld", "and fellow  gamers"])
+// assert.deepEqual(bashWordSplit(`helo"world" 'and fellow   gamers '`), ["heloworld", "and fellow   gamers "])
 
 assert.equal(fakeBash('foo=bar'), '')
 assert.equal(fakeBash('echo $foo'), 'bar')
@@ -56,8 +62,8 @@ assert.equal(fakeBash('x="y"'), '')
 assert.equal(fakeBash('echo $x'), 'y')
 assert.equal(fakeBash('a="g$x"'), '')
 assert.equal(fakeBash('echo $a'), 'gy')
-// assert.equal(fakeBash('a="g $x"'), '')
-// assert.equal(fakeBash('echo $a'), 'g y')
+assert.equal(fakeBash('a="g $x"'), '')
+assert.equal(fakeBash('echo $a'), 'g y')
 
 assert.equal(fakeBash('a="${x} g"'), '')
 assert.equal(fakeBash('echo $a'), 'y g')
@@ -137,8 +143,8 @@ assert.equal(fakeBash('echo $innerouter'), 'OUTER')
 // vars should not expand in single quotes or double expand
 // not working yet too lazy to bother i wanna go on
 assert.equal(fakeBash("foo='$HOME'"), '')
-// assert.equal(fakeBash("echo $foo"), '$HOME')
-// assert.equal(fakeBash("echo $foo $foo"), '$HOME $HOME')
+assert.equal(fakeBash("echo $foo"), '$HOME')
+assert.equal(fakeBash("echo $foo $foo"), '$HOME $HOME')
 
 // non alpha numeric vars
 assert.equal(fakeBash("echo $$"), '24410')
@@ -153,8 +159,8 @@ assert.equal(fakeBash("printf hi"), 'hi')
 assert.equal(fakeBash("printf -v x hi"), '')
 assert.equal(fakeBash("printf $x"), 'hi')
 assert.equal(fakeBash("printf -v iggs '$x'"), '')
-// assert.equal(fakeBash('printf "$iggs"'), '$x')
-// assert.equal(fakeBash("printf '$iggs'"), '$iggs')
+assert.equal(fakeBash('printf "$iggs"'), '$x')
+assert.equal(fakeBash("printf '$iggs'"), '$iggs')
 
 assert.equal(fakeBash('ls README.md'), 'README.md')
 assert.equal(fakeBash('echo $?'), '0')
@@ -183,8 +189,8 @@ assert.equal(fakeBash('cat bar.txt'), 'foo ') // the leading space is weird
 // assert.equal(fakeBash('cd /'), '')
 // assert.equal(fakeBash('ls home'), 'pi')
 // assert.equal(fakeBash('pwd'), '/')
-// assert.equal(fakeBash('cd $HOME'), '')
-// assert.equal(fakeBash('pwd'), '/home/pi')
+assert.equal(fakeBash('cd $HOME'), '')
+assert.equal(fakeBash('pwd'), '/home/pi')
 
 assert.equal(fakeBash('cat /'), 'cat: /: No such file or directory') // wrong should say is a directory
 assert.equal(fakeBash('cat /usr'), 'cat: /usr: No such file or directory') // wrong should say is a directory
