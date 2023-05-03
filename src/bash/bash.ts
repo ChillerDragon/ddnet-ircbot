@@ -901,7 +901,8 @@ export const fakeBash = (userinput: string): string => {
 	// const expandedBash = bashStr(userinput)
 	// if(userinput !== expandedBash)
 	// 	console.log(`[bash][expand] ${userinput} -> ${expandedBash}`)
-    const { stdout, stderr, exitCode } = evalBash(userinput)
+	const emptyPrevResult: BashResult = { stdout: '', stderr: '', exitCode: 0}
+    const { stdout, stderr, exitCode } = evalBash(userinput, emptyPrevResult)
     glbBs.vars['?'] = exitCode.toString()
     // TODO: can we do something better here
     //       to support mixed order stdout and stderr
@@ -1069,7 +1070,7 @@ const redirectToFile = (append: boolean, leftWords: string[], rightWords: string
 	return null
 }
 
-const evalBash = (userinput: string): BashResultIoFlushed => {
+const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFlushed => {
 	const hardcode = hardcodetBashReply(userinput)
 	if(hardcode !== null) {
 		return flushBashIo(hardcode)
@@ -1114,7 +1115,29 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 
 		const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
 		const rightWords = splitWords.slice(iteratedSplitWords)
-		if (word === '>') {
+		if (word === '|') {
+			// reset redirects on pipe
+			glbBs.stdoutFileDescriptior.stdIo = StdIo.stdout
+			glbBs.stdoutFileDescriptior.outfile = ''
+
+			// console.log(leftWords)
+			// console.log(rightWords)
+			dbgPrint(`[bash][splitcmds] got pipe left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+			// dangling pipe at the end
+			if (rightWords.length === 0) {
+				pipeSyntaxError = '-bash: syntax error: unexpected end of file'
+				return
+			}
+			const leftResult = evalBash(leftWords.join(' '), prevBashResult)
+			const rightResult = evalBash(rightWords.join(' '), leftResult)
+			// console.log(leftResult)
+			// console.log(rightResult)
+			recurseSplit = {
+				stdout: rightResult.stdout, // stdout gets eaten by the pipe
+				stderr: mergeStringNewline(leftResult.stderr, rightResult.stderr),
+				exitCode: rightResult.exitCode // only last exit code counts
+			}
+		} else if (word === '>') {
 			const append = false
 			const redRes = redirectToFile(append, leftWords, rightWords, delSplitWordIndecies, iteratedSplitWords)
 			if (redRes !== null) {
@@ -1136,11 +1159,11 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 			dbgPrint(`[bash][splitcmds] got semicolon left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
 			// do not evaluate empty if semicolon at the end
 			if (rightWords.length === 0) {
-				recurseSplit = evalBash(leftWords.join(' '))
+				recurseSplit = evalBash(leftWords.join(' '), prevBashResult)
 				return
 			}
-			const leftResult = evalBash(leftWords.join(' '))
-			const rightResult = evalBash(rightWords.join(' '))
+			const leftResult = evalBash(leftWords.join(' '), prevBashResult)
+			const rightResult = evalBash(rightWords.join(' '), leftResult)
 			// console.log(leftResult)
 			// console.log(rightResult)
 			recurseSplit = {
@@ -1207,7 +1230,8 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 			// console.log(args)
 			// return { stdout: '', stderr: '', exitCode: 0 }
 			assignVariable(cmd)
-			return evalBash(args.join(' '))
+			const emptyPrevResult: BashResult = { stdout: '', stderr: '', exitCode: 0}
+			return evalBash(args.join(' '), emptyPrevResult)
 		}
 	}
 
@@ -1512,6 +1536,12 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 	} else if (cmd === 'cat') {
 		const path = args[0]
+		// these two bash lines are different
+		// $ cat
+		// $ cat ''
+		if (path === undefined || path === null) {
+			return flushBashIo({ stdout: prevBashResult.stdout, stderr: '', exitCode: 0 })
+		}
 		// good ol bash word split
 		const [abspath, folder, filename] = pathInfo(path)
 		const file = getFile(abspath)

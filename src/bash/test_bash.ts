@@ -2,6 +2,15 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
+assert.equal(fakeBash('ls | echo a'), 'a\n')
+assert.equal(fakeBash('throw | echo a'), 'a\nbash: throw: command not found\n')
+assert.equal(fakeBash('echo hi | cat'), 'hi\n')
+assert.equal(fakeBash('echo hi | cat | cat | cat'), 'hi\n')
+
+// assert.equal(fakeBash('ls|echo a'), 'a\n') // valid bash but only psychos do no spaces around pipes so low prio
+
+// assert.equal(fakeBash('throw;echo $?'), '-bash: throw: command not found\n127') // TODO
+
 assert.equal(
 fakeBash('ls'),
 `.env
