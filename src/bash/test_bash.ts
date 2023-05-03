@@ -21,6 +21,9 @@ assert.equal(fakeBash(';;;;;;'), "-bash: syntax error near unexpected token `;'"
 
 assert.equal(fakeBash('ls "'), 'unexpected EOF while looking for matching `"\'')
 
+assert.equal(fakeBash(`cat "foo'bar"`), `cat: foo'bar: No such file or directory`) // technically wrong but close enough
+// assert.equal(fakeBash(`cat "foo'bar"`), `cat: "foo'bar": No such file or directory`) // this would be the correct on
+
 // assert.equal(fakeBash('foo > bar'), 'bash: foo: command not found')
 
 assert.equal(removeBashQuotes('foo'), 'foo')

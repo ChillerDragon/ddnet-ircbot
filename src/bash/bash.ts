@@ -730,6 +730,8 @@ const bashStr = (string: string): BashParseResult => {
 					scope = "'"
 				} else if (scope === "'") { // close quote
 					scope = null
+				} else if (scope === '"') {
+					finalString += letter
 				} else {
 					parseError = 'invalid scope'
 					return
