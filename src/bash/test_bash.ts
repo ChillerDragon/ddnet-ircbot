@@ -264,6 +264,16 @@ assert.equal(fakeBash('cat bar.txt'), 'bar\nbar\nbar')
 assert.equal(fakeBash('echo -n bar >> bar.txt'), '')
 assert.equal(fakeBash('cat bar.txt'), 'bar\nbar\nbarbar')
 
+// test echo newline expand
+assert.equal(fakeBash('echo "foo\\nbar"'), 'foo\\nbar\n')
+assert.equal(fakeBash('echo -e "foo\\nbar"'), 'foo\nbar\n')
+
+// test printf fmt
+assert.equal(fakeBash('printf %d 10'), '10')
+assert.equal(fakeBash('printf %d\\n 10'), '10\n')
+assert.equal(fakeBash('printf "%d\\n" 10'), '10\n')
+assert.equal(fakeBash('printf "%d\\n%s" 10 "some word"'), '10\nsome word')
+
 // assert.equal(fakeBash('cd ..'), '') // does not detect /home as dir for whatever reason
 // assert.equal(fakeBash('cd /home'), '')
 // assert.equal(fakeBash('pwd'), 'pi')

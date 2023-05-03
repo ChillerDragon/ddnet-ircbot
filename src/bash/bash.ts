@@ -1285,14 +1285,19 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 		return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
 	} else if (cmd === 'echo') {
 		let newline = '\n'
+		let expand = false
 		if (args[0] === '-n') {
 			args.shift()
 			newline = ''
 		}
 		if (args[0] === '-e') {
 			args.shift()
+			expand = true
 		}
-		const msg = args.join(' ') + newline
+		let msg = args.join(' ') + newline
+		if (expand) {
+			msg = msg.replaceAll('\\n', '\n')
+		}
 		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'git') {
 		const helptxt = [
@@ -1512,8 +1517,9 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 			let msg = args[0]
 			args.shift()
 			args.forEach((arg) => {
-				msg = msg.replace(/%[sib]/, arg)
+				msg = msg.replace(/%[sibd]/, arg)
 			})
+			msg = msg.replaceAll('\\n', '\n')
 			// console.log(`set var ${variable} to ${msg} using printf`)
 			glbBs.vars[variable] = msg
 			return flushBashIo({ stdout: '', stderr: '', exitCode: 0 })
@@ -1527,8 +1533,9 @@ const evalBash = (userinput: string): BashResultIoFlushed => {
 		let msg = args[0]
 		args.shift()
 		args.forEach((arg) => {
-			msg = msg.replace(/%[sib]/, arg)
+			msg = msg.replace(/%[sibd]/, arg)
 		})
+		msg = msg.replaceAll('\\n', '\n')
 		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'ls') {
 		let argFolder = null
