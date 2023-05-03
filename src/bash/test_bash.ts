@@ -82,8 +82,21 @@ assert.equal(fakeBash('var1=value'), '')
 assert.equal(fakeBash('var2="$var1 and another value"'), '')
 assert.equal(fakeBash('echo $var2'), 'value and another value')
 assert.equal(fakeBash('echo $var2 echo word split'), 'value and another value echo word split')
+
+assert.equal(fakeBash('a=A'), '')
+assert.equal(fakeBash('b=B'), '')
+assert.equal(fakeBash('c=C'), '')
+assert.equal(fakeBash('echo $a$b$c'), 'ABC')
+
+// var assign followed by a command
 assert.equal(fakeBash('unused=x ls .env'), '.env')
 assert.equal(fakeBash('CC=g++ make -j2'), 'bash: make: command not found')
+
+// var assign followed by another one (actually legal bash wot)
+assert.equal(fakeBash('a= b= c='), '')
+assert.equal(fakeBash('echo $a$b$c'), '')
+assert.equal(fakeBash('a=ah b=be c=ce'), '')
+assert.equal(fakeBash('echo $a$b$c'), 'ahbece')
 
 assert.equal(
 fakeBash('ls'),

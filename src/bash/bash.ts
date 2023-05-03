@@ -66,6 +66,71 @@ glbBs.vars['SHELL'] = '/bin/bash'
 glbBs.vars['USER'] = 'pi'
 glbBs.vars['PATH'] = '/home/pi/.cargo/bin:/home/pi/.nvm/versions/node/v18.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games'
 
+const isEnvVarTrue = (value: string) => {
+	return value.match(new RegExp('^(yes|1|on|true)$', 'i'))
+}
+
+/*
+	run this
+
+	DEBUG_BASH_STR=yes npm run test
+
+	or
+
+	DEBUG_BASH_ALL=yes npm run test
+*/
+const dbgPrintStr = (message: string) => {
+	if (!isEnvVarTrue(process.env.DEBUG_BASH_ALL || '0')) {
+		if (!isEnvVarTrue(process.env.DEBUG_BASH_STR || '0')) {
+			return
+		}
+	}
+	console.log(message)
+}
+
+/*
+	run this to see file system debug messages
+
+	DEBUG_BASH_FS=yes npm run test
+
+	or
+
+	DEBUG_BASH_ALL=yes npm run test
+*/
+const dbgPrintFs = (message: string) => {
+	if (!isEnvVarTrue(process.env.DEBUG_BASH_ALL || '0')) {
+		if (!isEnvVarTrue(process.env.DEBUG_BASH_FS || '0')) {
+			return
+		}
+	}
+	console.log(message)
+}
+
+/*
+	run this
+
+	DEBUG_BASH_WARN=yes npm run test
+
+	or
+
+	DEBUG_BASH_ALL=yes npm run test
+*/
+const dbgPrintWarn = (message: string) => {
+	if (!isEnvVarTrue(process.env.DEBUG_BASH_ALL || '0')) {
+		if (!isEnvVarTrue(process.env.DEBUG_BASH_WARN || '0')) {
+			return
+		}
+	}
+	console.log(message)
+}
+
+const dbgPrint = (message: string) => {
+	if (!isEnvVarTrue(process.env.DEBUG_BASH_ALL || '0')) {
+		return
+	}
+	console.log(message)
+}
+
 const getDiskUsage = () => {
 	return JSON.stringify(glbBs.fs).length
 }
@@ -90,7 +155,7 @@ const getFile = (fullpath: string): UnixFile | null => {
 	const split = fullpath.split('/')
 	const filename = split.pop()
 	let path = split.join('/')
-	console.log(`getFile path=${path} filename=${filename}`)
+	dbgPrintFs(`getFile path=${path} filename=${filename}`)
 	let foundFile = null
 	if (!glbBs.fs[path]) {
 		return null
@@ -610,61 +675,66 @@ const bashStr = (string: string): string => {
 	let isVar = false
 	let finalString = ''
 	string.split('').forEach((letter) => {
-		console.log(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
-		// if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
-		// 	scope = (scope === '"') ? null : '"'
-		if (letter === '"' && scope === '"') { // close double quote
-			scope = null
-		} else if (letter === '"' && scope === null) { // open double quote
-			scope = '"'
-		} else if (letter === "'") {
-			if (scope === '}') { // single quote in ${var'} breaks
-				throw('unexpected EOF')
-				// unexpected EOF while looking for matching `''
-			} else if (scope === null) { // open quote
-				scope = "'"
-			} else if (scope === "'") { // close quote
+		while (true) { // fake goto
+			dbgPrintStr(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
+			// if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
+			// 	scope = (scope === '"') ? null : '"'
+			if (letter === '"' && scope === '"') { // close double quote
 				scope = null
-			} else {
-				throw('invalid scope')
-			}
-		} else if (letter === '$' && scope !== "'" && !isVar) { // we need !IsVar because of $$ pid var
-			isVar = true
-		} else if (letter === '{' && isVar && curly === null) { // open curly
-			//                      check for curly === null
-			//              because:
-			//                 echo $a{a
-			//              prints:
-			//                 {a
-			curly = "}"
-		} else if (letter === '}' && curly) { // close curly
-			curly = null
-			console.log(`[bash][var][match_curly] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
-			finalString += currentVar === '' ? '$' : getBashVar(currentVar)
-			currentVar = ''
-			isVar = false
-		} else if (isVar) {
-			// const bashVarPattern = '[a-zA-Z_0-9\\?\\$]+[a-zA-Z0-9_]*'
-			// TODO $$ and $$$
-			const bashVarLetter1Pattern = '[a-zA-Z_0-9\\?\\$]'
-			const bashVarLetter2Pattern = '[a-zA-Z_0-9]'
-			const pat = currentVar.length === 0 ? bashVarLetter1Pattern : bashVarLetter2Pattern
-			if (new RegExp(`^${pat}$`).test(letter)) {
-				currentVar += letter
-			} else {
-				console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+			} else if (letter === '"' && scope === null) { // open double quote
+				scope = '"'
+			} else if (letter === "'") {
+				if (scope === '}') { // single quote in ${var'} breaks
+					throw('unexpected EOF')
+					// unexpected EOF while looking for matching `''
+				} else if (scope === null) { // open quote
+					scope = "'"
+				} else if (scope === "'") { // close quote
+					scope = null
+				} else {
+					throw('invalid scope')
+				}
+			} else if (letter === '$' && scope !== "'" && !isVar) { // we need !IsVar because of $$ pid var
+				isVar = true
+			} else if (letter === '{' && isVar && curly === null) { // open curly
+				//                      check for curly === null
+				//              because:
+				//                 echo $a{a
+				//              prints:
+				//                 {a
+				curly = "}"
+			} else if (letter === '}' && curly) { // close curly
+				curly = null
+				dbgPrintStr(`[bash][var][match_curly] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
 				finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 				currentVar = ''
-				finalString += letter
 				isVar = false
+			} else if (isVar) {
+				// const bashVarPattern = '[a-zA-Z_0-9\\?\\$]+[a-zA-Z0-9_]*'
+				// TODO $$ and $$$
+				const bashVarLetter1Pattern = '[a-zA-Z_0-9\\?\\$]'
+				const bashVarLetter2Pattern = '[a-zA-Z_0-9]'
+				const pat = currentVar.length === 0 ? bashVarLetter1Pattern : bashVarLetter2Pattern
+				if (new RegExp(`^${pat}$`).test(letter)) {
+					currentVar += letter
+				} else {
+					dbgPrintStr(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+					finalString += currentVar === '' ? '$' : getBashVar(currentVar)
+					currentVar = ''
+					isVar = false
+					dbgPrintStr(`[bash][var][recursion] warning using fake goto`)
+					// finalString += letter
+					continue // start from the top to check the letter
+				}
+			} else {
+				finalString += letter
 			}
-		} else {
-			finalString += letter
+			break // break out of fake goto loop
 		}
 	})
 	if(isVar) {
-		console.log(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
-		console.log(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
+		dbgPrintStr(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
+		dbgPrintStr(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
 		finalString += currentVar === '' ? '$' : getBashVar(currentVar)
 		isVar = false
 	}
@@ -788,7 +858,7 @@ const assignVariable = (validAlreadyExpandedVariableAssignment: string): void =>
 		return
 	}
 	const expandedVal = varVal // bashStr(varVal) // TODO: should we maybe not double expand here?
-	console.log(`[bash][assign_var] ${varKey}=${expandedVal}`)
+	dbgPrintStr(`[bash][assign_var] ${varKey}=${expandedVal}`)
 	glbBs.vars[varKey] = expandedVal
 }
 
@@ -797,8 +867,8 @@ const evalBash = (userinput: string): BashResult => {
 	if(hardcode !== null) {
 		return hardcode
 	}
-	console.log('-----------------------------')
-	console.log(`eval: ${userinput}`)
+	dbgPrint('-----------------------------')
+	dbgPrint(`eval: ${userinput}`)
 
 	// leading spaces are never part of the syntax
 	// or breaking the syntax
@@ -836,6 +906,7 @@ const evalBash = (userinput: string): BashResult => {
 			return { stdout: '', stderr: '', exitCode: 0 }
 		} else {
 			// TODO: assign temp env var
+			// but its not a tmp var if no command follows but multiple vars are assigned
 
 			// set temp env and then run command
 			// like this
@@ -844,9 +915,10 @@ const evalBash = (userinput: string): BashResult => {
 			//  \ __/  \_/
 			//     |    |
 			//    var  new command
-			console.log('[bash][eval] warning doing recursion to eval after var assign')
+			dbgPrintWarn('[bash][eval] warning doing recursion to eval after var assign')
 			// console.log(args)
 			// return { stdout: '', stderr: '', exitCode: 0 }
+			assignVariable(cmd)
 			return evalBash(args.join(' '))
 		}
 	}
@@ -1163,7 +1235,7 @@ const evalBash = (userinput: string): BashResult => {
 				file.perms[8] +
 				(isAdd ? 'x' : '-')
 			file.perms = newperms
-			console.log(`matched exec regex and set file perms to newperms=${newperms} file.perms=${file.perms} add=${isAdd}`)
+			// console.log(`matched exec regex and set file perms to newperms=${newperms} file.perms=${file.perms} add=${isAdd}`)
 			return { stdout: '', stderr: '', exitCode: 0 }
 		}
 		console.log("warning fallback fileperms unkonwn opt" + expandedOptArg)
