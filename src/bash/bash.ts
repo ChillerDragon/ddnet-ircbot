@@ -1019,7 +1019,7 @@ const flushBashIo = (bashRes: BashResult): BashResultIoFlushed => {
 }
 
 const redirectToFile = (append: boolean, leftWords: string[], rightWords: string[], delSplitWordIndecies: number[], iteratedSplitWords: number): string | null => {
-	dbgPrintFs(`[bash][redirect] red to file append=${append} left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+	dbgPrintFs(`[bash][redirect] redirect to file append=${append} left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
 	if (rightWords.length === 0) {
 		return "-bash: syntax error near unexpected token `newline'"
 	}
