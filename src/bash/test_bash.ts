@@ -19,6 +19,8 @@ assert.equal(fakeBash(';;;;'), "-bash: syntax error near unexpected token `;'")
 assert.equal(fakeBash(';;;;;'), "-bash: syntax error near unexpected token `;'")
 assert.equal(fakeBash(';;;;;;'), "-bash: syntax error near unexpected token `;'")
 
+assert.equal(fakeBash('ls "'), 'unexpected EOF while looking for matching `"\'')
+
 // assert.equal(fakeBash('foo > bar'), 'bash: foo: command not found')
 
 assert.equal(removeBashQuotes('foo'), 'foo')

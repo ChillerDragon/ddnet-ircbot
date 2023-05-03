@@ -21,6 +21,11 @@ interface BashResult {
     exitCode: number
 }
 
+interface BashParseResult {
+    stdout: string,
+    stderr: string
+}
+
 export const glbBs: BashState = {
     fs: {},
     vars: {},
@@ -665,9 +670,9 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 
 // const bashVarNamePattern = '[a-zA-Z_\\?\\$]+[a-zA-Z0-9_]*'
 
-const bashStr = (string: string): string => {
+const bashStr = (string: string): BashParseResult => {
 	if(!string) {
-		return ''
+		return { stdout: '', stderr: '' }
 	}
 	/* broken because of overlapping vars */
 	// Object.keys(glbBs.vars).forEach((key) => {
@@ -703,8 +708,12 @@ const bashStr = (string: string): string => {
 	let curly: string | null = null
 	let isVar = false
 	let finalString = ''
+	let parseError = ''
 	string.split('').forEach((letter) => {
 		while (true) { // fake goto
+			if (parseError) {
+				return
+			}
 			dbgPrintStr(`[bash][var] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=${letter} scope=${scope} curly=${curly}`)
 			// if (letter === '"' && scope !== "'") { // toggle double quote unless single quote
 			// 	scope = (scope === '"') ? null : '"'
@@ -714,14 +723,16 @@ const bashStr = (string: string): string => {
 				scope = '"'
 			} else if (letter === "'") {
 				if (scope === '}') { // single quote in ${var'} breaks
-					throw('unexpected EOF')
+					parseError = 'unexpected EOF'
+					return
 					// unexpected EOF while looking for matching `''
 				} else if (scope === null) { // open quote
 					scope = "'"
 				} else if (scope === "'") { // close quote
 					scope = null
 				} else {
-					throw('invalid scope')
+					parseError = 'invalid scope'
+					return
 				}
 			} else if (letter === '$' && scope !== "'" && !isVar) { // we need !IsVar because of $$ pid var
 				isVar = true
@@ -761,6 +772,9 @@ const bashStr = (string: string): string => {
 			break // break out of fake goto loop
 		}
 	})
+	if (parseError) {
+		return { stdout: '', stderr: parseError }
+	}
 	if(isVar) {
 		dbgPrintStr(`[bash][var][e] currentVar=${currentVar} finalString=${finalString} isVar=${isVar} letter=EOL scope=${scope}`)
 		dbgPrintStr(`[bash][var][match] getBashVar(${currentVar}) => ${getBashVar(currentVar)}`)
@@ -771,7 +785,7 @@ const bashStr = (string: string): string => {
 		scope = curly
 	}
 	if (scope) {
-		throw `unexpected EOF while looking for matching \`${scope}'`
+		return { stdout: '', stderr: `unexpected EOF while looking for matching \`${scope}'` }
 	}
 	string = finalString
 
@@ -786,7 +800,7 @@ const bashStr = (string: string): string => {
 			}
 		})
 		if (matches.length !== 0) {
-			return matches.join('\n')
+			return { stdout: matches.join('\n'), stderr: '' }
 		}
 	} else if (string.endsWith('*')) {
 		const files = glbBs.fs[glbBs.vars['PWD']] ? glbBs.fs[glbBs.vars['PWD']] : []
@@ -797,10 +811,10 @@ const bashStr = (string: string): string => {
 			}
 		})
 		if (matches.length !== 0) {
-			return matches.join('\n')
+			return { stdout: matches.join('\n'), stderr: '' }
 		}
 	}
-	return string
+	return { stdout: string, stderr: '' }
 }
 
 export const fakeBash = (userinput: string): string => {
@@ -935,7 +949,7 @@ const evalBash = (userinput: string): BashResult => {
 	splitWords.forEach((word) => {
 		iteratedSplitWords += 1
 		const unquotedWord = removeBashQuotes(word)
-		console.log(word)
+		// console.log(word)
 		if (unquotedWord === ';') {
 			const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
 			const rightWords = splitWords.slice(iteratedSplitWords)
@@ -957,7 +971,20 @@ const evalBash = (userinput: string): BashResult => {
 		return recurseSplit
 	}
 
-	const expandedWords = splitWords.map((word) => bashStr(word))
+	let stringError = ''
+	const expandedWords = splitWords.map((word) => {
+		if (stringError) {
+			return stringError
+		}
+		const res = bashStr(word)
+		if (res.stderr) {
+			stringError = res.stderr
+		}
+		return res.stdout
+	})
+	if (stringError) {
+		return { stdout: '', stderr: stringError, exitCode: 1 }
+	}
 	const cmd = expandedWords.shift()
 	if (!cmd) {
 		return { stdout: '', stderr: 'internal error', exitCode: 1812 }
