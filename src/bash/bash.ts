@@ -604,13 +604,21 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 	// simple string no quotes
 	// split on space and strip all surrounding
 	// spaces around words
-	if(!text.includes('"') && !text.includes("'")) {
-		return text.split(/\s+/)
+	// if(!text.includes('"') && !text.includes("'")) {
+	// 	return text.split(/\s+/)
+	// }
+	if (!text) {
+		return ['']
 	}
 	let words: string[] = []
 	let word = ''
 	let quote: string | null = null
+	let wordBeforeLastSemicolon = ''
+	let parseError = ''
 	text.split('').forEach((letter) => {
+		if(parseError) {
+			return
+		}
 		// console.log(`[bash][word] word=${word} words=${words} letter=${letter} quote=${quote}`)
 		if (["'", '"'].includes(letter) && !quote) { // open quote
 			quote = letter
@@ -618,6 +626,16 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 		} else if (quote === letter) { // close quote
 			quote = null
 			word += letter
+		} else if (letter === ';' && !quote) {
+			if(wordBeforeLastSemicolon === '') {
+				parseError = "-bash: syntax error near unexpected token `;'"
+			}
+			if(word) {
+				words.push(word)
+			}
+			words.push(';') // put them in so later we can cmd split
+			word = ''
+			wordBeforeLastSemicolon = ''
 		} else if (letter === ' ' && !quote) {
 			// swallow spaces
 			if(word === '') {
@@ -627,6 +645,7 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 			words.push(word)
 			word = ''
 		} else {
+			wordBeforeLastSemicolon += letter
 			word += letter
 		}
 	})
@@ -635,6 +654,9 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 	}
 	if (quote) {
 		return `unexpected EOF while looking for matching \`${quote}'`
+	}
+	if (parseError) {
+		return parseError
 	}
 	return words
 }
@@ -869,6 +891,14 @@ const assignVariable = (validAlreadyExpandedVariableAssignment: string): void =>
 	glbBs.vars[varKey] = expandedVal
 }
 
+const mergeStringNewline = (string1: string, string2: string): string => {
+	let sum = string1
+	if(sum) {
+		sum += '\n'
+	}
+	return sum + string2
+}
+
 const evalBash = (userinput: string): BashResult => {
 	const hardcode = hardcodetBashReply(userinput)
 	if(hardcode !== null) {
@@ -898,6 +928,35 @@ const evalBash = (userinput: string): BashResult => {
 		// the toString() is just here to please typescript
 		return { stdout: '', stderr: splitWords.toString(), exitCode: 1 }
 	}
+
+	// pipes or redirects
+	let iteratedSplitWords = 0
+	let recurseSplit: BashResult | null = null
+	splitWords.forEach((word) => {
+		iteratedSplitWords += 1
+		const unquotedWord = removeBashQuotes(word)
+		console.log(word)
+		if (unquotedWord === ';') {
+			const leftWords = splitWords.slice(0, iteratedSplitWords - 1)
+			const rightWords = splitWords.slice(iteratedSplitWords)
+			// console.log(leftWords)
+			// console.log(rightWords)
+			dbgPrint(`[bash][splitcmds] got semicolon left=${leftWords.join(' ')} right=${rightWords.join(' ')}`)
+			const leftResult = evalBash(leftWords.join(' '))
+			const rightResult = evalBash(rightWords.join(' '))
+			// console.log(leftResult)
+			// console.log(rightResult)
+			recurseSplit = {
+				stdout: mergeStringNewline(leftResult.stdout, rightResult.stdout),
+				stderr: mergeStringNewline(leftResult.stderr, rightResult.stderr),
+				exitCode: rightResult.exitCode // only last exit code counts
+			}
+		}
+	})
+	if (recurseSplit !== null) {
+		return recurseSplit
+	}
+
 	const expandedWords = splitWords.map((word) => bashStr(word))
 	const cmd = expandedWords.shift()
 	if (!cmd) {

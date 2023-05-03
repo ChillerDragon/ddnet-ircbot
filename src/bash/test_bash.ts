@@ -2,6 +2,25 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo ; bar'), ["foo", ";", "bar"])
+
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;bar'), ["foo", ";", "bar"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;'), ["foo", ";"])
+
+assert.equal(fakeBash('foo ; bar'), 'bash: foo: command not found\nbash: bar: command not found')
+
+assert.equal(fakeBash('foo;bar'), 'bash: foo: command not found\nbash: bar: command not found')
+assert.equal(fakeBash('foo; bar'), 'bash: foo: command not found\nbash: bar: command not found')
+assert.equal(fakeBash('"foo";bar'), 'bash: foo: command not found\nbash: bar: command not found')
+
+assert.equal(fakeBash(';;'), "-bash: syntax error near unexpected token `;'")
+assert.equal(fakeBash('ls;;'), "-bash: syntax error near unexpected token `;'")
+assert.equal(fakeBash(';;;;'), "-bash: syntax error near unexpected token `;'")
+assert.equal(fakeBash(';;;;;'), "-bash: syntax error near unexpected token `;'")
+assert.equal(fakeBash(';;;;;;'), "-bash: syntax error near unexpected token `;'")
+
+// assert.equal(fakeBash('foo > bar'), 'bash: foo: command not found')
+
 assert.equal(removeBashQuotes('foo'), 'foo')
 assert.equal(removeBashQuotes('"foo"'), 'foo')
 assert.equal(removeBashQuotes("'foo'"), 'foo')
@@ -98,11 +117,25 @@ assert.equal(fakeBash('echo $a$b$c'), 'ABC')
 assert.equal(fakeBash('unused=x ls .env'), '.env')
 assert.equal(fakeBash('CC=g++ make -j2'), 'bash: make: command not found')
 
+// if var assigns are followed by a command they should only be set as env for the command
+// assert.equal(fakeBash('echo $CC'), '')
+
+// if var assigns are followed by a command they should only be set as env for the command
+// but not as bash variable even in the same line
+// assert.equal(fakeBash('gg=ee echo $gg'), '')
+
 // var assign followed by another one (actually legal bash wot)
 assert.equal(fakeBash('a= b= c='), '')
 assert.equal(fakeBash('echo $a$b$c'), '')
 assert.equal(fakeBash('a=ah b=be c=ce'), '')
 assert.equal(fakeBash('echo $a$b$c'), 'ahbece')
+
+// stderr should escape stdout pipe
+assert.equal(fakeBash('foo > bar'), 'bash: foo: command not found')
+
+// pipes and redirects can not be expanded
+assert.equal(fakeBash('pipe=">"'), '')
+// assert.equal(fakeBash('echo foo $pipe hype'), 'foo > hype')
 
 assert.equal(
 fakeBash('ls'),
