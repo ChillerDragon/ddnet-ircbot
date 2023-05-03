@@ -2,6 +2,11 @@ import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo,
 
 import { strict as assert } from 'node:assert';
 
+// TODO: word split and glob
+// assert.equal(fakeBash('echo foo > foo.md'), '')
+// assert.equal(fakeBash('echo bar > bar.md'), '')
+// assert.equal(fakeBash('cat *.md | head -n 1'), 'foo\n')
+
 assert.equal(fakeBash('echo -e "hi\\nho\\nha" | head -n 1'), 'hi\n')
 assert.equal(fakeBash('echo -n hi | head'), 'hi')
 

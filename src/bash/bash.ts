@@ -869,6 +869,14 @@ const bashStr = (string: string): BashParseResult => {
 	}
 	string = finalString
 
+	// TODO: globbing should not newline and replace ls
+	//       it should space split
+	//       and ls should accept space seperated n args for file paths
+	//       but for that to work the word splitter has to run over this result
+	//       because bash can word split even expanded vars:
+	//
+	//       glob=*.py
+	//       echo $glob => hey_to_pack.py
 
 	// simple globbing only 1 star and only in the begging
 	if(string.startsWith('*')) {
@@ -1622,6 +1630,8 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 
 		return flushBashIo({ stdout: headed, stderr: '', exitCode: 0 })
 	} else if (cmd === 'cat') {
+		// TODO: actually concatinate
+		// console.log(args)
 		const path = args[0]
 		// these two bash lines are different
 		// $ cat
@@ -1630,6 +1640,7 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 			return flushBashIo({ stdout: prevBashResult.stdout, stderr: '', exitCode: 0 })
 		}
 		const [abspath, folder, filename] = pathInfo(path)
+		// console.log(abspath)
 		const file = getFile(abspath)
 		if (!file) {
 			return flushBashIo({ stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ })
