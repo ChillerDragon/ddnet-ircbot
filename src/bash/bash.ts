@@ -1108,6 +1108,9 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		return flushBashIo({ stdout: '', stderr: splitWords.toString(), exitCode: 1 })
 	}
 
+	// TODO: glob after pipe split because of this
+	//       cd foo;ls *.txt
+
 	// pipes or redirects
 	let iteratedSplitWords = 0
 	let recurseSplit: BashResult | null = null
