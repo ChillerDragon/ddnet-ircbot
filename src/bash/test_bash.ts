@@ -27,10 +27,12 @@ assert.equal(bashGlob('./*.py'), './hex_to_pack.py')
 assert.equal(bashGlob('/bin/pri*'), '/bin/printf')
 assert.equal(bashGlob('/bin/*tf'), '/bin/printf')
 
-// TODO: word split and glob
-// assert.equal(fakeBash('echo foo > foo.md'), '')
-// assert.equal(fakeBash('echo bar > bar.md'), '')
-// assert.equal(fakeBash('cat *.md | head -n 1'), 'foo\n')
+assert.equal(fakeBash('echo foo > foo.md'), '')
+assert.equal(fakeBash('echo bar > bar.md'), '')
+assert.equal(fakeBash('echo *.md'), 'README.md foo.md bar.md\n')
+assert.equal(fakeBash('cat *.md | head -n 1'), 'foo\n')
+assert.equal(fakeBash('rm foo.md'), '')
+assert.equal(fakeBash('rm bar.md'), '')
 
 assert.equal(fakeBash('echo -e "hi\\nho\\nha" | head -n 1'), 'hi\n')
 assert.equal(fakeBash('echo -n hi | head'), 'hi')

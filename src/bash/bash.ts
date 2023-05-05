@@ -1715,26 +1715,55 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 
 		return flushBashIo({ stdout: headed, stderr: '', exitCode: 0 })
 	} else if (cmd === 'cat') {
-		// TODO: actually concatinate
-		// console.log(args)
-		const path = args[0]
+		const argFoldersAndFiles: string[] = []
+		let flagStdin = false
+		while (args[0]) {
+			const arg = args.shift()
+			if (arg === undefined || arg === null) {
+				break
+			}
+			if (arg === '-') {
+				flagStdin = true
+			} else if (arg[0] === '-') {
+				arg.split("").forEach((flag) => {
+					if(flag === 's') {
+						// sample flag
+					}
+				})
+			} else {
+				argFoldersAndFiles.push(arg)
+			}
+		}
 		// these two bash lines are different
 		// $ cat
 		// $ cat ''
-		if (path === undefined || path === null) {
+		if (argFoldersAndFiles.length === 0) {
+			flagStdin = true
+		}
+		if (flagStdin) {
 			return flushBashIo({ stdout: prevBashResult.stdout, stderr: '', exitCode: 0 })
 		}
-		const [abspath, folder, filename] = pathInfo(path)
-		// console.log(abspath)
-		const file = getFile(abspath)
-		if (!file) {
-			return flushBashIo({ stdout: '', stderr: `cat: ${path}: No such file or directory`, exitCode: 1 /* verified */ })
-		}
-		if(file.type === 'd') {
-			return flushBashIo({ stdout: '', stderr: `cat: ${path}: Is a directory`, exitCode: 1 /* verified */ })
-		}
-		const content = file.content ? file.content : ''
-		return flushBashIo({ stdout: content, stderr: '', exitCode: 0 })
+		let catOut = ''
+		let catErr = ''
+		let catExitCode = 0
+		argFoldersAndFiles.forEach((path) => {
+			const [abspath, folder, filename] = pathInfo(path)
+			// console.log(abspath)
+			const file = getFile(abspath)
+			if (!file) {
+				catErr = mergeStringNewline(catErr, `cat: ${path}: No such file or directory`)
+				catExitCode = 1 /* verified */
+				return
+			}
+			if(file.type === 'd') {
+				catErr = mergeStringNewline(catErr, `cat: ${path}: Is a directory`)
+				catExitCode = 1 /* verified */
+				return
+			}
+			const content = file.content ? file.content : ''
+			catOut = mergeStringNewline(catOut, content)
+		})
+		return flushBashIo({ stdout: catOut, stderr: catErr, exitCode: catExitCode })
 	} else if (cmd === 'printf') {
 		if (args.length === 0) {
 			return flushBashIo({ stdout: 'printf: usage: printf [-v var] format [arguments]', stderr: '', exitCode: 0 })
