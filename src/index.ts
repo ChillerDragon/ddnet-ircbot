@@ -182,7 +182,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		say(`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc)`);
+		say(`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc), !sh (bash)`);
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if(!isPapaChiler(from, isBridge)) {
 			return
@@ -229,6 +229,10 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 		})
 		return
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
+		if (process.env.ALLOW_PACKET == '0' ) {
+			say('packet command broken because i got hacked')
+			return
+		}
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
 		pythonProcess.stdout.on('data', (data: Buffer | string | any) => {
 			data.toString().split('\n').forEach((line: string) => {
