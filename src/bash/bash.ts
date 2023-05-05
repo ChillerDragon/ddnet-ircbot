@@ -188,7 +188,19 @@ const getPathType = (fullpath: string): string | null => {
 	return type
 }
 
+const getPseudoFileRoot = (): UnixFile => {
+	const peseudoFileRoot: UnixFile = {
+		name: '/',
+		perms: 'drwxr-xr-x',
+		type: 'd'
+	}
+	return peseudoFileRoot
+}
+
 const getFile = (fullpath: string): UnixFile | null => {
+	if (fullpath === '/') {
+		return getPseudoFileRoot()
+	}
 	const split = fullpath.split('/')
 	const filename = split.pop()
 	let path = split.join('/')
@@ -928,6 +940,8 @@ const globInDir = (dir: string, keepDirPrefix: boolean, glob: string): string =>
 	if (matchedFiles.length === 0) {
 		return glob
 	}
+	// avoid //bin on /*
+	dir = dir === '/' ? '' : dir
 	return matchedFiles.map((file) => quoteIfNeeded(keepDirPrefix ? `${dir}/${file.name}` : file.name)).join(' ')
 }
 
@@ -951,6 +965,12 @@ export const bashGlob = (text: string): string => {
 	if (!text.includes('/')) {
 		return globInDir(glbBs.vars['PWD'], false, text)
 	}
+
+	// edge case /*
+	if (text === '/*') {
+		return globInDir('/', true, '*')
+	}
+
 	// fixed path on the left hand side
 	// and glob files in that path on the right
 	const lastSlashIndex = getLastIndex(text, '/')
@@ -1746,6 +1766,7 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		let catOut = ''
 		let catErr = ''
 		let catExitCode = 0
+		dbgPrint(`[bash][cat] called with files=${argFoldersAndFiles}`)
 		argFoldersAndFiles.forEach((path) => {
 			const [abspath, folder, filename] = pathInfo(path)
 			// console.log(abspath)
