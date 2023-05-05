@@ -1,6 +1,14 @@
-import { fakeBash, quoteIfNeeded, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs, bashGlob } from './bash'
+import { fakeBash, quoteIfNeeded, getLastIndex, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs, bashGlob } from './bash'
 
 import { strict as assert } from 'node:assert';
+
+assert.equal(fakeBash('ls .env'), '.env')
+
+assert.equal(getLastIndex('foo', 'f'), 0)
+assert.equal(getLastIndex('foo', 'o'), 2)
+assert.equal(getLastIndex('fooo', 'o'), 3)
+assert.equal(getLastIndex('foooo', 'o'), 4)
+assert.equal(getLastIndex('foooof', 'f'), 5)
 
 assert.equal(quoteIfNeeded(''), '')
 assert.equal(quoteIfNeeded('hi'), 'hi')
@@ -13,6 +21,11 @@ assert.equal(quoteIfNeeded("foo bar \" baz '"), `'foo bar " baz '\\'''`) // this
 
 assert.equal(bashGlob('*'), 'env.example hex_to_pack.py index.js LICENSE .env node_modules package.json package-lock.json ping_pong.csv README.md tags Dockerfile')
 assert.equal(bashGlob('*.py'), 'hex_to_pack.py')
+assert.equal(bashGlob('h*to***.py'), 'hex_to_pack.py')
+assert.equal(bashGlob('hex*_to_pack.py'), 'hex_to_pack.py')
+assert.equal(bashGlob('./*.py'), './hex_to_pack.py')
+assert.equal(bashGlob('/bin/pri*'), '/bin/printf')
+assert.equal(bashGlob('/bin/*tf'), '/bin/printf')
 
 // TODO: word split and glob
 // assert.equal(fakeBash('echo foo > foo.md'), '')

@@ -748,6 +748,14 @@ export const bashWordSplitKeepQuotesEatSpaces = (text: string): string[] | strin
 
 // const bashVarNamePattern = '[a-zA-Z_\\?\\$]+[a-zA-Z0-9_]*'
 
+/*
+	bashStr
+
+	expand variables but keep quotes
+
+	can throw a quote error
+	and a { curly error
+*/
 const bashStr = (string: string): BashParseResult => {
 	if(!string) {
 		return { stdout: '', stderr: '' }
@@ -797,8 +805,11 @@ const bashStr = (string: string): BashParseResult => {
 			// 	scope = (scope === '"') ? null : '"'
 			if (letter === '"' && scope === '"') { // close double quote
 				scope = null
+				finalString += letter
+
 			} else if (letter === '"' && scope === null) { // open double quote
 				scope = '"'
+				finalString += letter
 			} else if (letter === "'") {
 				if (scope === '}') { // single quote in ${var'} breaks
 					parseError = 'unexpected EOF'
@@ -806,8 +817,10 @@ const bashStr = (string: string): BashParseResult => {
 					// unexpected EOF while looking for matching `''
 				} else if (scope === null) { // open quote
 					scope = "'"
+					finalString += letter
 				} else if (scope === "'") { // close quote
 					scope = null
+					finalString += letter
 				} else if (scope === '"') {
 					finalString += letter
 				} else {
@@ -868,40 +881,6 @@ const bashStr = (string: string): BashParseResult => {
 		return { stdout: '', stderr: `unexpected EOF while looking for matching \`${scope}'` }
 	}
 	string = finalString
-
-	// TODO: globbing should not newline and replace ls
-	//       it should space split
-	//       and ls should accept space seperated n args for file paths
-	//       but for that to work the word splitter has to run over this result
-	//       because bash can word split even expanded vars:
-	//
-	//       glob=*.py
-	//       echo $glob => hey_to_pack.py
-
-	// simple globbing only 1 star and only in the begging
-	if(string.startsWith('*')) {
-		const files = glbBs.fs[glbBs.vars['PWD']] ? glbBs.fs[glbBs.vars['PWD']] : []
-		const matches: string[] = []
-		files.forEach((file) => {
-			if (file.name.endsWith(string.substring(1))) {
-				matches.push(file.name)
-			}
-		})
-		if (matches.length !== 0) {
-			return { stdout: matches.join('\n'), stderr: '' }
-		}
-	} else if (string.endsWith('*')) {
-		const files = glbBs.fs[glbBs.vars['PWD']] ? glbBs.fs[glbBs.vars['PWD']] : []
-		const matches: string[] = []
-		files.forEach((file) => {
-			if (file.name.startsWith(string.substring(0,string.length - 1))) {
-				matches.push(file.name)
-			}
-		})
-		if (matches.length !== 0) {
-			return { stdout: matches.join('\n'), stderr: '' }
-		}
-	}
 	return { stdout: string, stderr: '' }
 }
 
@@ -930,6 +909,32 @@ export const quoteIfNeeded = (word: string): string => {
 	return word
 }
 
+/*
+	globInDir
+
+	expand bash glob in given directory
+*/
+const globInDir = (dir: string, keepDirPrefix: boolean, glob: string): string => {
+	const [abspath, folder, filename] = pathInfo(dir)
+	// console.log(`glob in dir=${abspath}`)
+	const files = glbBs.fs[abspath] ? glbBs.fs[abspath] : []
+	const globPat = new RegExp(glob.split(/\*+/).join('.*'))
+	const matchedFiles: UnixFile[] = []
+	files.forEach((file) => {
+		if (globPat.test(file.name)) {
+			matchedFiles.push(file)
+		}
+	})
+	if (matchedFiles.length === 0) {
+		return glob
+	}
+	return matchedFiles.map((file) => quoteIfNeeded(keepDirPrefix ? `${dir}/${file.name}` : file.name)).join(' ')
+}
+
+export const getLastIndex = (haystack: string, needle: string): number => {
+	return haystack.length - 1 - haystack.split('').reverse().indexOf(needle)
+}
+
 export const bashGlob = (text: string): string => {
 	if (!text.includes('*')) {
 		return text
@@ -941,8 +946,28 @@ export const bashGlob = (text: string): string => {
 		}
 		return files.map((file) => quoteIfNeeded(file.name)).join(' ')
 	}
-	const matches: string[] = []
-	return ''
+	// the path stuff is more complicated
+	// so lets keep the code simpler when we can
+	if (!text.includes('/')) {
+		return globInDir(glbBs.vars['PWD'], false, text)
+	}
+	// fixed path on the left hand side
+	// and glob files in that path on the right
+	const lastSlashIndex = getLastIndex(text, '/')
+	const firstAsteriskIndex = text.indexOf('*')
+	if (lastSlashIndex < firstAsteriskIndex) {
+		const paths = text.split('/')
+		const globPattern = paths.pop()
+		if (!globPattern || paths.length === 0) {
+			return text
+		}
+		const globDir = paths.join('/')
+		return globInDir(globDir, true, globPattern)
+	}
+	// TODO: this is the most tricky one -.-
+	// glob dirs
+	// ls **/*/.py finds py files recursivley
+	return text
 }
 
 export const fakeBash = (userinput: string): string => {
@@ -1254,11 +1279,28 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 	if (stringError) {
 		return flushBashIo({ stdout: '', stderr: stringError, exitCode: 1 })
 	}
-	const cmd = expandedWords.shift()
+
+	// this needs the expandedWords to still be quoted
+	const globbedWords: string[] = []
+	expandedWords.forEach((word) => {
+		const splitGlobs = bashWordSplitKeepQuotesEatSpaces(bashGlob(word))
+		if (typeof splitGlobs === 'string' || splitGlobs instanceof String) {
+			console.log(`[bash][glob] THIS IS REALLY BAD! we got a quote error after globbing`)
+			console.log(`[bash][glob]   THIS MEANS THE GLOB EXPANDS TO QUOTES THAT CAN NOT BE UNQUOTED AGAIN`)
+			console.log(`[bash][glob]   passing the userinput=${userinput} through glob and then quoteIfNeeded() and then bashWordSplitKeepQuotesEatSpaces() again`)
+			// the toString() is just here to please typescript
+			return flushBashIo({ stdout: '', stderr: splitGlobs.toString(), exitCode: 18228 })
+		}
+		splitGlobs.forEach(globWord => {
+			globbedWords.push(removeBashQuotes(globWord))
+		})
+	})
+
+	const cmd = globbedWords.shift()
 	if (!cmd) {
 		return flushBashIo({ stdout: '', stderr: 'internal error 1812', exitCode: 1812 })
 	}
-	const args = expandedWords
+	const args = globbedWords
 
 	// console.log(`[bash][bashstr] cmd=${cmd} args=${args}`)
 
@@ -1738,52 +1780,67 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		msg = msg.replaceAll('\\n', '\n')
 		return flushBashIo({ stdout: msg, stderr: '', exitCode: 0 })
 	} else if (cmd === 'ls') {
-		let argFolder = null
+		const argFoldersAndFiles: string[] = []
 		if(!args[0]) {
-			argFolder = '.'
+			argFoldersAndFiles.push('.')
 		}
 		let flagList = false
 		while (args[0]) {
-			if(args[0][0] === '-') {
-				args[0].split("").forEach((flag) => {
+			const arg = args.shift()
+			if (arg === undefined || arg === null) {
+				break
+			}
+			if(arg[0] === '-') {
+				arg.split("").forEach((flag) => {
 					if(flag === 'l') {
 						flagList = true
 					}
 				})
-			} else if (!argFolder) {
-				argFolder = args[0]
-			}
-			args.shift()
-		}
-		const [abspath, folder, filename] = pathInfo(argFolder ? argFolder : '.')
-		const files = glbBs.fs[abspath]
-		const printFile = (file: UnixFile, flagList: boolean): string => {
-			let perms = '-rw-r--r--'
-			if(file.perms) {
-				perms = file.perms
-			}
-			const dSuffix = file.type === 'd' ? '/' : ''
-			if(flagList) {
-				return `${perms} pi pi Apr 30 10:10 ${file.name}${dSuffix}`
 			} else {
-				return file.name + dSuffix
+				argFoldersAndFiles.push(arg)
 			}
 		}
-		if (files) {
-			const out = files.map((file) => {
-				return printFile(file, flagList)
-			}).sort().join('\n')
-			return flushBashIo({ stdout: out, stderr: '', exitCode: 0 })
-		} else if (isFile(abspath)) {
-			const file = getFile(abspath)
-			if(!file) {
-				console.log("wtf")
-				return flushBashIo({ stdout: 'bash error', stderr: '', exitCode: 0 })
-			}
-			return flushBashIo({ stdout: printFile(file, flagList), stderr: '', exitCode: 0 })
-		} else {
-			return flushBashIo({ stdout: '', stderr: `ls: cannot access '${abspath}': Permission denied`, exitCode: 2 /* verified */ })
+		if (argFoldersAndFiles.length === 0) {
+			argFoldersAndFiles.push('.')
 		}
+		let lsErr = ''
+		let lsOut = ''
+		let lsExitCode = 0
+		dbgPrint(`[bash][ls] called with files=${argFoldersAndFiles}`)
+		argFoldersAndFiles.forEach((fileOrFolder) => {
+			const [abspath, folder, filename] = pathInfo(fileOrFolder ? fileOrFolder : '.')
+			const files = glbBs.fs[abspath]
+			const printFile = (file: UnixFile, flagList: boolean): string => {
+				let perms = '-rw-r--r--'
+				if(file.perms) {
+					perms = file.perms
+				}
+				const dSuffix = file.type === 'd' ? '/' : ''
+				if(flagList) {
+					return `${perms} pi pi Apr 30 10:10 ${file.name}${dSuffix}`
+				} else {
+					return file.name + dSuffix
+				}
+			}
+			if (files) {
+				const out = files.map((file) => {
+					return printFile(file, flagList)
+				}).sort().join('\n')
+				lsOut = mergeStringNewline(lsOut, out)
+			} else if (isFile(abspath)) {
+				const file = getFile(abspath)
+				if(!file) {
+					console.log("wtf")
+					lsErr = mergeStringNewline(lsErr, 'bash error')
+					return
+				}
+				lsOut = mergeStringNewline(lsOut, printFile(file, flagList))
+			} else {
+				lsErr = mergeStringNewline(lsErr, `ls: cannot access '${abspath}': Permission denied`)
+				lsExitCode = 2 /* verified */
+			}
+		})
+		return flushBashIo({ stdout: lsOut, stderr: lsErr, exitCode: lsExitCode })
 	} else if (cmd === 'df') {
 		const used = getDiskUsage()
 		const usedPad = used.toString().padStart(8, ' ')
