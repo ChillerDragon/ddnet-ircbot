@@ -1,6 +1,18 @@
-import { fakeBash, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs } from './bash'
+import { fakeBash, quoteIfNeeded, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs, bashGlob } from './bash'
 
 import { strict as assert } from 'node:assert';
+
+assert.equal(quoteIfNeeded(''), '')
+assert.equal(quoteIfNeeded('hi'), 'hi')
+assert.equal(quoteIfNeeded('hello world'), "'hello world'")
+assert.equal(quoteIfNeeded('hello world ingers'), "'hello world ingers'")
+assert.equal(quoteIfNeeded('wot"nrol'), `'wot"nrol'`)
+assert.equal(quoteIfNeeded("don't"), `"don't"`)
+assert.equal(quoteIfNeeded("don't name your files like this"), `"don't name your files like this"`)
+assert.equal(quoteIfNeeded("foo bar \" baz '"), `'foo bar " baz '\\'''`) // this is verified correct
+
+assert.equal(bashGlob('*'), 'env.example hex_to_pack.py index.js LICENSE .env node_modules package.json package-lock.json ping_pong.csv README.md tags Dockerfile')
+assert.equal(bashGlob('*.py'), 'hex_to_pack.py')
 
 // TODO: word split and glob
 // assert.equal(fakeBash('echo foo > foo.md'), '')

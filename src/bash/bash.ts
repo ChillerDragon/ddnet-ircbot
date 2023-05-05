@@ -905,6 +905,46 @@ const bashStr = (string: string): BashParseResult => {
 	return { stdout: string, stderr: '' }
 }
 
+export const quoteIfNeeded = (word: string): string => {
+	if (word.includes(' ')) {
+		if (word.includes("'")) {
+			if (word.includes('"')) {
+				// TODO: we do not support unquoting them
+				// since we do not support escaping quotes yet
+				return `'${word.replaceAll("'", "'\\''")}'`
+			}
+			return `"${word}"`
+		}
+		return `'${word}'`
+	} else if (word.includes('"')) {
+		if (word.includes("'")) {
+			return `'${word.replaceAll("'", "'\\''")}'`
+		}
+		return `'${word}'`
+	} else if (word.includes("'")) {
+		if (word.includes('"')) {
+			return `'${word.replaceAll("'", "'\\''")}'`
+		}
+		return `"${word}"`
+	}
+	return word
+}
+
+export const bashGlob = (text: string): string => {
+	if (!text.includes('*')) {
+		return text
+	}
+	if (text === '*') {
+		const files = glbBs.fs[glbBs.vars['PWD']] ? glbBs.fs[glbBs.vars['PWD']] : []
+		if (files.length === 0) {
+			return text
+		}
+		return files.map((file) => quoteIfNeeded(file.name)).join(' ')
+	}
+	const matches: string[] = []
+	return ''
+}
+
 export const fakeBash = (userinput: string): string => {
 	// const expandedBash = bashStr(userinput)
 	// if(userinput !== expandedBash)
