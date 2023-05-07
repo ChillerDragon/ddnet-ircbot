@@ -1,6 +1,9 @@
 node_modules/
 *_secret.csv
 .env
-venv
-dist
+*.env
+.env*
+tmp/
+venv/
+dist/
 
