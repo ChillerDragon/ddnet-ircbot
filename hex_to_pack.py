@@ -33,7 +33,7 @@ if len(sys.argv) == 1:
     sys.exit(1)
 
 try:
-    data = str_to_bytes(data)
+    data = str_to_bytes(sys.argv[1])
 except ValueError:
     print('invalid hex')
     sys.exit(1)

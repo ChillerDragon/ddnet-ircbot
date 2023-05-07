@@ -234,11 +234,17 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			return
 		}
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
+		// nice to debug but can leak stuff on error
+		// pythonProcess.stderr.on('data', (data: Buffer | string | any) => {
+		// 	data.toString().split('\n').forEach((line: string) => {
+		// 		messageQueue.push(line)
+		// 	})
+		// })
 		pythonProcess.stdout.on('data', (data: Buffer | string | any) => {
 			data.toString().split('\n').forEach((line: string) => {
 				messageQueue.push(line)
 			})
-		});
+		})
 	} else if (cmd === 'add_ping_pong') {
 		if(!isPapaChiler(from, isBridge)) {
 			return
