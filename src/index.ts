@@ -158,7 +158,7 @@ const isPapaChiler = (from: string, isBridge: boolean) => {
 
 client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, async (from: string, message: string) => {
 	let isBridge = false
-	if (['bridge', 'ws-client'].includes(from)) {
+	if (['bridge', 'bridge_', 'ws-client', 'ws-client1'].includes(from)) {
 		const slibbers = message.split('>')
 		from = slibbers[0].substring(1)
 		message = slibbers.slice(1).join('>').substring(1)
