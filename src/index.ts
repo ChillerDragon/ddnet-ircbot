@@ -232,13 +232,15 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			say('packet command broken because i got hacked')
 			return
 		}
+		console.log('spawning python3 process')
 		const pythonProcess = spawn('python3', ["hex_to_pack.py", args.join(' ')])
+		console.log('spawned python3 process')
 		// nice to debug but can leak stuff on error
-		// pythonProcess.stderr.on('data', (data: Buffer | string | any) => {
-		// 	data.toString().split('\n').forEach((line: string) => {
-		// 		messageQueue.push(line)
-		// 	})
-		// })
+		pythonProcess.stderr.on('data', (data: Buffer | string | any) => {
+			data.toString().split('\n').forEach((line: string) => {
+				messageQueue.push(line)
+			})
+		})
 		pythonProcess.stdout.on('data', (data: Buffer | string | any) => {
 			data.toString().split('\n').forEach((line: string) => {
 				messageQueue.push(line)
