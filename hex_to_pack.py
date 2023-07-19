@@ -89,7 +89,6 @@ try:
     print_packet(packet)
 except:
     print('error')
-    sys.exit(1)
 
 time.sleep(2)
 code("--- 0.6")
@@ -99,5 +98,4 @@ try:
     print_packet(packet)
 except:
     print('error')
-    sys.exit(1)
 
