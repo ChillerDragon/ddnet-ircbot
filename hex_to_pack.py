@@ -7,6 +7,7 @@ import re
 import ast
 from binascii import hexlify
 import string
+from importlib.metadata import version
 
 import twnet_parser.packet
 
@@ -31,6 +32,8 @@ def str_to_bytes(data):
 if len(sys.argv) == 1:
     print("provide tw traffix hex like this: 04 0a 00 cf 2e de 1d 04")
     sys.exit(1)
+
+print(f"[twnet_parser v{version('twnet_parser')}] ", end = '')
 
 try:
     data = str_to_bytes(sys.argv[1])
