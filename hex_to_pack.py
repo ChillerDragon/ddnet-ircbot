@@ -33,29 +33,42 @@ if len(sys.argv) == 1:
     print("provide tw traffix hex like this: 04 0a 00 cf 2e de 1d 04")
     sys.exit(1)
 
-print(f"[twnet_parser v{version('twnet_parser')}] ", end = '')
-
 try:
     data = str_to_bytes(sys.argv[1])
 except ValueError:
     print('invalid hex')
     sys.exit(1)
 
-try:
-    packet = twnet_parser.packet.parse7(data)
-except:
-    print('error')
-    sys.exit(1)
-
 def code(msg):
     print(f"```{msg}```")
     sys.stdout.flush()
 
-code(packet.version)
+code(f"[twnet_parser v{version('twnet_parser')}] udp payload: {data.hex(sep = ' ')}")
+
+def print_packet(packet):
+    code(packet.header)
+    time.sleep(3)
+    for msg in packet.messages:
+        time.sleep(2)
+        code(msg)
+
+time.sleep(2)
+code("--- 0.7")
 time.sleep(1)
-code(packet.header)
-time.sleep(3)
-for msg in packet.messages:
-    time.sleep(2)
-    code(msg)
+try:
+    packet = twnet_parser.packet.parse7(data)
+    print_packet(packet)
+except:
+    print('error')
+    sys.exit(1)
+
+time.sleep(2)
+code("--- 0.6")
+time.sleep(1)
+try:
+    packet = twnet_parser.packet.parse6(data)
+    print_packet(packet)
+except:
+    print('error')
+    sys.exit(1)
 
