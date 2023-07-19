@@ -2,7 +2,7 @@ FROM node:18-slim
 
 RUN apt-get update -y && apt-get install python3 python3-pip coreutils procps -y
 
-RUN python3 -m pip install twnet_parser --break-system-packages
+RUN python3 -m pip install twnet_parser dpkt --break-system-packages
 
 WORKDIR /home/pi
 
