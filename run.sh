@@ -53,8 +53,8 @@
 # 
 # sudo iptables -S DOCKER-USER
 
-docker stop ddnet_irc
-docker rm ddnet_irc
-docker build -t ddnet_irc . || exit 1
-docker run -d --name ddnet_irc -t ddnet_irc || exit 1
+podman stop ddnet_irc
+podman rm ddnet_irc
+podman build -t ddnet_irc . || exit 1
+podman run -d --name ddnet_irc -t ddnet_irc || exit 1
 

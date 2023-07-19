@@ -23,16 +23,16 @@ npx tsc
 node dist/index.js
 ```
 
-Optionally you can also start a docker container with
+Optionally you can also start a podman container with
 ```
 # start or restart and update
 ./run.sh
 
 # to get logs
-docker logs -f ddnet_irc
+podman logs -f ddnet_irc
 
 # to stop
-docker kill ddnet_irc
+podman kill ddnet_irc
 ```
 
 ## test
