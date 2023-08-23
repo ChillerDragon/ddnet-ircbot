@@ -1,8 +1,12 @@
 FROM node:18-slim
 
-RUN apt-get update -y && apt-get install python3 python3-pip coreutils procps -y
+RUN apt-get update -y && apt-get install python3 python3-pip coreutils procps build-essential curl -y
 
-RUN python3 -m pip install twnet_parser dpkt --break-system-packages
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN python3 -m pip install twnet_parser dpkt libtw2-huffman --break-system-packages
 
 WORKDIR /home/pi
 
