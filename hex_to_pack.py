@@ -12,6 +12,7 @@ from importlib.metadata import version
 
 import dpkt
 import twnet_parser.packet
+import twnet_parser.huffman
 
 def str_to_bytes(data):
     data = data.strip()
@@ -73,7 +74,7 @@ except:
 
 data = udp_payload
 
-code(f"[twnet_parser v{version('twnet_parser')}] udp payload: {data.hex(sep = ' ')}")
+code(f"[twnet_parser v{version('twnet_parser')}][huffman={twnet_parser.huffman.backend_name()}] udp payload: {data.hex(sep = ' ')}")
 
 def print_packet(packet):
     code(packet.header)
