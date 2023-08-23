@@ -238,7 +238,8 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 		// nice to debug but can leak stuff on error
 		pythonProcess.stderr.on('data', (data: Buffer | string | any) => {
 			data.toString().split('\n').forEach((line: string) => {
-				messageQueue.push(line)
+				console.log(line)
+				// messageQueue.push(line)
 			})
 		})
 		pythonProcess.stdout.on('data', (data: Buffer | string | any) => {

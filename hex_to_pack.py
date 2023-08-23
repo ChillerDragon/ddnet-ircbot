@@ -2,6 +2,7 @@
 
 import sys
 import time
+import traceback
 
 import re
 import ast
@@ -81,13 +82,19 @@ def print_packet(packet):
         time.sleep(2)
         code(msg)
 
+def print_err(msg):
+    sys.stderr.write(traceback.format_exc())
+    sys.stderr.write("\n")
+    sys.stderr.flush()
+
 time.sleep(2)
 code("--- 0.7")
 time.sleep(1)
 try:
     packet = twnet_parser.packet.parse7(data)
     print_packet(packet)
-except:
+except Exception:
+    print_err(traceback.format_exc())
     print('error')
 
 time.sleep(2)
@@ -96,6 +103,7 @@ time.sleep(1)
 try:
     packet = twnet_parser.packet.parse6(data)
     print_packet(packet)
-except:
+except Exception:
+    print_err(traceback.format_exc())
     print('error')
 
