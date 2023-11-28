@@ -326,7 +326,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			didRespond = false
 		}
 	}
-	if(didRespond && message[0] !== '!') {
+	if(didRespond && message[0] === '!') {
 		say('! is deprecated moved to $')
 	}
 })
