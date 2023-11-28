@@ -235,7 +235,6 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 
 			messageQueue.push(line)
 		})
-		return
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		if (process.env.ALLOW_PACKET == '0' ) {
 			say('packet command broken because i got hacked')
@@ -326,7 +325,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			didRespond = false
 		}
 	}
-	if(didRespond && message[0] === '!') {
+	if(didRespond && message[0] === '!' && message.length > 1) {
 		say('! is deprecated moved to $')
 	}
 })
