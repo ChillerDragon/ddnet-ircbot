@@ -176,11 +176,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			say(ghUrl);
 		})
 	}
-	if (message[0] === cmdPrefix()) {
-		// dollar is new cmd prefix
-	} else if (message[0] === '!') {
-		say('! is deprecated moved to $')
-	} else {
+	if (message[0] !== cmdPrefix() && message[0] !== '!') {
 		return
 	}
 
@@ -189,6 +185,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 	const words = message.substring(1).split(' ') // keep double spaces
 	const cmd = words[0] 
 	const args = words.slice(1)
+	let didRespond = true;
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
 		say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
@@ -325,7 +322,12 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 		const pong = checkPingPongCmd(cmd)
 		if(pong !== null) {
 			say(pong)
+		} else {
+			didRespond = false
 		}
+	}
+	if(didRespond && message[0] !== '!') {
+		say('! is deprecated moved to $')
 	}
 })
 
