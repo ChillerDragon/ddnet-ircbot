@@ -60,6 +60,10 @@ loadQuiz()
 
 console.log(QUIZ)
 
+const cmdPrefix = () => {
+	return '$'
+}
+
 const getServerIpsByPlayerName = async (searchName: string) => {
 	const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
 	const data = await res.json()
@@ -172,16 +176,24 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 			say(ghUrl);
 		})
 	}
-	if (message[0] !== '!') {
+	if (message[0] === cmdPrefix()) {
+		// dollar is new cmd prefix
+	} else if (message[0] === '!') {
+		say('! is deprecated moved to $')
+	} else {
 		return
 	}
+
 	// delete doubled spaces
 	// const words = message.substring(1).split(' ').filter((a) => a !== '') 
 	const words = message.substring(1).split(' ') // keep double spaces
 	const cmd = words[0] 
 	const args = words.slice(1)
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
-		say(`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands: !mods, !ping, !p (hex traffixc), !sh (bash)`);
+		say(
+			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
+			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash)`
+		)
 	} else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
 		if(!isPapaChiler(from, isBridge)) {
 			return
@@ -308,7 +320,7 @@ client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, asy
 		} else {
 			// say("wrong")
 		}
-		say("do '!quiz solve' to check the answer")
+		say(`do '${cmdPrefix()}quiz solve' to check the answer`)
 	} else {
 		const pong = checkPingPongCmd(cmd)
 		if(pong !== null) {
