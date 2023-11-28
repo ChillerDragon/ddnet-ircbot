@@ -37,6 +37,14 @@ podman kill ddnet_irc
 
 ## test
 
+Automated unit testes
+
 ```
 npx ts-node src/test_bash.ts
+```
+
+Interactive dry run (no irc)
+
+```
+npm run dev
 ```

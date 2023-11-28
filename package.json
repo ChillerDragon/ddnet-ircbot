@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "run": "tsc;node dist/index.js",
+    "dev": "npx ts-node src/interactive_test.ts",
     "test": "npx ts-node src/bash/test_bash.ts"
   },
   "repository": {
