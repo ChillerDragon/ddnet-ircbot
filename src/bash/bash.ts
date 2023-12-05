@@ -1941,8 +1941,6 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		}
 		return flushBashIo({ stdout: '', stderr: `rm: cannot remove '${path}': No such file or directory`, exitCode: 1 /* TODO made up */ })
 		// return "rm: remove write-protected regular fipytlehKilledon error"
-	} else if (cmd === 'ls') {
-		// we handle ls else where
 	} else if (!cmdInUnixPath(cmd)) {
 		return flushBashIo({ stdout: '', stderr: `bash: ${cmd}: command not found`, exitCode: 1 /* TODO made up */ })
 	}
