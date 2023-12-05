@@ -382,6 +382,15 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'env', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'id', type: 'f', perms: '-rwxr-xr-x', content: `@@@   [[x%888 XXXDDStd888 Ptd<<QtdRtd/lib64/ld-linux-x86-64.so.2GNUGNUC
+  q!iU¥AGNUBI BDI(emPv,crbA93HBg J*9k"\`1Fo1 X\`_(Ms
+                                              %>ȿCDBIF (0 8
+  @
+   H
+  X\`hp' (()0*8+@,H-P.X/\`0h1p2x3456789:;<=?@AHHt5ʟ%̟@%ʟh%h%h%h%h%h%h%hp%\`%h P%zh
+  @%rh
+      0%jh
+  %Zh%Rh%Jh%Bh%:h%2h%*h%"h%h%hp%`},
 ]
 glbBs.fs['/usr/lib'] = [
 	{name: 'ld-linux-armhf.so.3', type: 'f', perms: '-rw-r--r--'},
@@ -1010,15 +1019,15 @@ const hardcodetBashReply = (userinput: string): BashResult | null => {
 	if (userinput === ':(){ :|:& };:' || userinput === ':(){:|:&};:') {
 		return { stdout: 'bash error\nbash error\nbash error', stderr: '', exitCode: 0 }
 	}
-	if (["bash", "bash;", "bash -c bash", "/bin/bash", "/bin/sh"].includes(userinput)) {
+	if (['bash', 'bash;', 'bash -c bash', '/bin/bash', '/bin/sh'].includes(userinput)) {
 		glbBs.vars['PWD'] = '/home/pi'
 		glbBs.vars['SHELL'] = '/bin/bash'
 		return { stdout: '', stderr: '', exitCode: 0 }
-	} else if (["zsh", "zsh;", "bash -c zsh", "/bin/zsh"].includes(userinput)) {
+	} else if (['zsh', 'zsh;', 'bash -c zsh', '/bin/zsh'].includes(userinput)) {
 		glbBs.vars['PWD'] = '/home/pi'
 		glbBs.vars['SHELL'] = '/bin/zsh'
 		return { stdout: '', stderr: '', exitCode: 0 }
-	} else if (["rm -rf .;", "rm -rf .", "rm *;", "rm *"].includes(userinput)) {
+	} else if (['rm -rf .;', 'rm -rf .', 'rm *;', 'rm *'].includes(userinput)) {
 		if (!glbBs.fs[glbBs.vars['PWD']]) {
 			// guard against disk grow
 			// when set PWD to random locations before rm
@@ -1028,9 +1037,9 @@ const hardcodetBashReply = (userinput: string): BashResult | null => {
 		}
 		glbBs.fs[glbBs.vars['PWD']] = []
 		return { stdout: '', stderr: '', exitCode: 0 }
-	} else if (["pwd", "pwd;"].includes(userinput)) {
+	} else if (['pwd', 'pwd;'].includes(userinput)) {
 		return { stdout: glbBs.vars['PWD'], stderr: '', exitCode: 0 }
-	} else if (["env", "env;"].includes(userinput)) {
+	} else if (['env', 'env;'].includes(userinput)) {
 		const env = [
 				`SHELL=${glbBs.vars['SHELL']}`,
 				'NVM_INC=/home/pi/.nvm/versions/node/v18.16.0/include/node',
@@ -1550,6 +1559,9 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		return flushBashIo({ stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 })
 	} else if (cmd === 'dmesg') {
 		return flushBashIo({ stdout: '', stderr: 'dmesg: read kernel buffer failed: Operation not permitted', exitCode: 1 /* verified */ })
+	} else if (cmd === 'id') {
+    const idOut = `uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),105(input),109(netdev),117(lpadmin),994(docker),995(nordvpn),997(gpio),998(i2c),999(spi)`
+    return flushBashIo({ stdout: idOut, stderr: '', exitCode: 0 })
 	} else if (cmd === 'reboot') {
 		const out = [
 			'Failed to set wall message, ignoring: Interactive authentication required.',
