@@ -1,4 +1,5 @@
 import { onChatMessage } from "./commands"
+import { messageQueue } from "./queue"
 
 const readline = require('readline')
 
@@ -10,8 +11,8 @@ const rl = readline.createInterface({
 
 console.log('************************************************')
 console.log(`
-     _                                  _      
-  __| | _____   __  _ __ ___   ___   __| | ___ 
+     _                                  _
+  __| | _____   __  _ __ ___   ___   __| | ___
  / _\` |/ _ \\ \\ / / | '_ \` _ \\ / _ \\ / _\` |/ _ \\
 | (_| |  __/\\ V /  | | | | | | (_) | (_| |  __/
  \\__,_|\\___| \\_/   |_| |_| |_|\\___/ \\__,_|\\___|
@@ -36,3 +37,14 @@ rl.on('line', (line: string) => {
 rl.once('close', () => {
     // end of input
 })
+
+const printQueue = () => {
+	if (messageQueue().length <= 0) {
+		return
+	}
+	const msg = messageQueue().shift()
+	if(msg)
+		say(msg)
+}
+
+setInterval(printQueue, 200)
