@@ -136,6 +136,23 @@ const isPapaChiler = (from: string, isBridge: boolean, say: (msg: string) => voi
 	return true
 }
 
+export const onShellCommand = (userinput: string, say: (msg: string) => void): void => {
+  if (process.env.ALLOW_BASH == '0' ) {
+    say('bash broken because i got hacked')
+    return
+  }
+  const fake = fakeBash(userinput)
+  const maxStdout = parseInt(process.env.MAX_STDOUT || '3', 10)
+  let numStdout = 0
+  fake.toString().split('\n').forEach((line) => {
+    numStdout += 1
+    if (numStdout === maxStdout) { line = 'max output ...' }
+    if (numStdout > maxStdout) { return }
+
+    messageQueue().push(line)
+  })
+}
+
 // type SayCallback = (msg: string) => void
 export const onChatMessage = async (from: string, message: string, say: (msg: string) => void) => {
 	let isBridge = false
@@ -158,9 +175,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 	}
 
 	// delete doubled spaces
-	// const words = message.substring(1).split(' ').filter((a) => a !== '') 
+	// const words = message.substring(1).split(' ').filter((a) => a !== '')
 	const words = message.substring(1).split(' ') // keep double spaces
-	const cmd = words[0] 
+	const cmd = words[0]
 	const args = words.slice(1)
 	let didRespond = true;
 	if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
@@ -197,21 +214,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 			})
 		});
 	} else if (cmd === 'bash' || cmd === 'sh' || cmd === 'shell') {
-		if (process.env.ALLOW_BASH == '0' ) {
-			say('bash broken because i got hacked')
-			return
-		}
-		const userinput = args.join(' ')
-		const fake = fakeBash(userinput)
-		const maxStdout = parseInt(process.env.MAX_STDOUT || '3', 10)
-		let numStdout = 0
-		fake.toString().split('\n').forEach((line) => {
-			numStdout += 1
-			if (numStdout === maxStdout) { line = 'max output ...' }
-			if (numStdout > maxStdout) { return }	
-
-			messageQueue().push(line)
-		})
+		onShellCommand(args.join(' '), say)
 	} else if (cmd === 'pck' || cmd === 'p' || cmd === 'packet') {
 		if (process.env.ALLOW_PACKET == '0' ) {
 			say('packet command broken because i got hacked')
@@ -306,4 +309,3 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 		say('! is deprecated moved to $')
 	}
 }
-

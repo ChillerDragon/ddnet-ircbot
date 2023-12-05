@@ -1,4 +1,4 @@
-import { onChatMessage } from "./commands"
+import { onChatMessage, onShellCommand } from "./commands"
 import { messageQueue } from "./queue"
 
 const readline = require('readline')
@@ -30,8 +30,26 @@ const say = (msg: string) => {
 	console.log('<chillerbot>', msg)
 }
 
+let shellMode = false
+
+const prompt = () => {
+  if(messageQueue().length > 0) {
+    return
+  }
+  process.stdout.write(shellMode ? '$ ' : '> ')
+}
+prompt()
+
 rl.on('line', (line: string) => {
+  if (shellMode) {
+    onShellCommand(line, say)
+  } else if (line === '$shell') {
+    shellMode = true
+    say('shell mode activated')
+  } else {
     onChatMessage("testuser", line, say)
+  }
+  prompt()
 })
 
 rl.once('close', () => {
@@ -45,6 +63,7 @@ const printQueue = () => {
 	const msg = messageQueue().shift()
 	if(msg)
 		say(msg)
+  prompt()
 }
 
 setInterval(printQueue, 200)
