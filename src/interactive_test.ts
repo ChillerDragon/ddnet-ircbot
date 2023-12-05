@@ -30,7 +30,10 @@ const say = (msg: string) => {
 	console.log('<chillerbot>', msg)
 }
 
-let shellMode = false
+let shellMode = true
+if(shellMode) {
+  console.log('shell mode is active write $exit to return to chat')
+}
 
 const prompt = () => {
   if(messageQueue().length > 0) {
@@ -41,11 +44,14 @@ const prompt = () => {
 prompt()
 
 rl.on('line', (line: string) => {
-  if (shellMode) {
-    onShellCommand(line, say)
-  } else if (line === '$shell') {
+  if (line === '$shell') {
     shellMode = true
     say('shell mode activated')
+  } else if (shellMode && (line === '$exit' || line === 'exit' || line === '.exit')) {
+    shellMode = false
+    say('shell mode deactivated')
+  } else if (shellMode) {
+    onShellCommand(line, say)
   } else {
     onChatMessage("testuser", line, say)
   }
@@ -53,7 +59,7 @@ rl.on('line', (line: string) => {
 })
 
 rl.once('close', () => {
-    // end of input
+  process.exit()
 })
 
 const printQueue = () => {
