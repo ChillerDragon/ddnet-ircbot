@@ -204,6 +204,9 @@ const getFile = (fullpath: string): UnixFile | null => {
 	const split = fullpath.split('/')
 	const filename = split.pop()
 	let path = split.join('/')
+	if(path === '') {
+		path = '/'
+	}
 	dbgPrintFs(`getFile path=${path} filename=${filename}`)
 	let foundFile = null
 	if (!glbBs.fs[path]) {
@@ -1769,7 +1772,7 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		dbgPrint(`[bash][cat] called with files=${argFoldersAndFiles}`)
 		argFoldersAndFiles.forEach((path) => {
 			const [abspath, folder, filename] = pathInfo(path)
-			// console.log(abspath)
+			dbgPrintFs(`[bash][cat] abspath=${abspath} folder=${folder} filename=${filename}`)
 			const file = getFile(abspath)
 			if (!file) {
 				catErr = mergeStringNewline(catErr, `cat: ${path}: No such file or directory`)

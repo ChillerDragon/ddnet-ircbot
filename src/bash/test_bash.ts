@@ -339,27 +339,27 @@ assert.equal(fakeBash('cd $HOME'), '')
 assert.equal(fakeBash('pwd'), '/home/pi')
 
 assert.equal(fakeBash('cat /'), 'cat: /: Is a directory')
-assert.equal(fakeBash('cat /usr'), 'cat: /usr: No such file or directory')
+assert.equal(fakeBash('cat /usr'), 'cat: /usr: Is a directory')
 assert.equal(bashGlob('/*'), '/bin /boot /dev /etc /home /lib /lib64 /lost+found /mnt /opt /proc /root /run /sbin /srv /sys /tmp /usr /var')
-assert.equal(fakeBash('cat /*'), 'cat: /bin: No such file or directory\n' +
-    'cat: /boot: No such file or directory\n' +
-    'cat: /dev: No such file or directory\n' +
-    'cat: /etc: No such file or directory\n' +
-    'cat: /home: No such file or directory\n' +
-    'cat: /lib: No such file or directory\n' +
-    'cat: /lib64: No such file or directory\n' +
-    'cat: /lost+found: No such file or directory\n' +
-    'cat: /mnt: No such file or directory\n' +
-    'cat: /opt: No such file or directory\n' +
-    'cat: /proc: No such file or directory\n' +
-    'cat: /root: No such file or directory\n' +
-    'cat: /run: No such file or directory\n' +
-    'cat: /sbin: No such file or directory\n' +
-    'cat: /srv: No such file or directory\n' +
-    'cat: /sys: No such file or directory\n' +
-    'cat: /tmp: No such file or directory\n' +
-    'cat: /usr: No such file or directory\n' +
-    'cat: /var: No such file or directory')
+assert.equal(fakeBash('cat /*'), 'cat: /bin: Is a directory\n' +
+    'cat: /boot: Is a directory\n' +
+    'cat: /dev: Is a directory\n' +
+    'cat: /etc: Is a directory\n' +
+    'cat: /home: Is a directory\n' +
+    'cat: /lib: Is a directory\n' +
+    'cat: /lib64: Is a directory\n' +
+    'cat: /lost+found: Is a directory\n' +
+    'cat: /mnt: Is a directory\n' +
+    'cat: /opt: Is a directory\n' +
+    'cat: /proc: Is a directory\n' +
+    'cat: /root: Is a directory\n' +
+    'cat: /run: Is a directory\n' +
+    'cat: /sbin: Is a directory\n' +
+    'cat: /srv: Is a directory\n' +
+    'cat: /sys: Is a directory\n' +
+    'cat: /tmp: Is a directory\n' +
+    'cat: /usr: Is a directory\n' +
+    'cat: /var: Is a directory')
 
 glbBs.vars['PWD'] = '/home/pi/test'
 assert.deepEqual(pathInfo(".."), ['/home/pi', '/home', null])
