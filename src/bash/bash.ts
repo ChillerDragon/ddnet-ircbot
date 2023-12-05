@@ -24,9 +24,10 @@ interface UnixFileDescriptor {
 }
 
 interface BashState {
-    fs: UnixFileSystem,
-    vars: {[key: string]: string},
-    tmpLineEnv: {[key: string]: string},
+	upSince: Date,
+	fs: UnixFileSystem,
+	vars: {[key: string]: string},
+	tmpLineEnv: {[key: string]: string},
 	stdoutFileDescriptior: UnixFileDescriptor
 }
 
@@ -48,28 +49,29 @@ interface BashResultIoFlushed {
 
 interface BashParseResult {
 	stdout: string,
-    stderr: string
+	stderr: string
 }
 
 export const glbBs: BashState = {
-    fs: {},
-    vars: {},
-    /*
-        line scoped env variables
-		vars set followed by a command
-		will not be set as a regular bash variable ever
-		but set as environment variable for the run program
+	upSince: new Date(),
+	fs: {},
+	vars: {},
+	/*
+	line scoped env variables
+	vars set followed by a command
+	will not be set as a regular bash variable ever
+	but set as environment variable for the run program
 
-		TODO:
-		this is unused for now because building the env getter
-		properly takes to much time
+	TODO:
+	this is unused for now because building the env getter
+	properly takes to much time
 
-		echo $foo # => null
-		foo=bar echo $foo # => null
-		echo $foo # => null
-		foo=bar node -e "console.log(process.env.foo)" # => bar
-    */
-    tmpLineEnv: {},
+	echo $foo # => null
+	foo=bar echo $foo # => null
+	echo $foo # => null
+	foo=bar node -e "console.log(process.env.foo)" # => bar
+	*/
+	tmpLineEnv: {},
 	stdoutFileDescriptior: {
 		stdIo: StdIo.stdin,
 		id: StdIo.stdin,
@@ -252,9 +254,9 @@ export const pathInfo = (fullpath: string): [string, string, string | null] => {
 	let filename = null
 	if (split.length > 0) {
 		filename = split.pop()
-        if(!filename) {
-            filename = null
-        }
+		if(!filename) {
+			filename = null
+		}
 	}
 	const basepath = split.join('/')
 	let abspath = basepath
@@ -274,7 +276,7 @@ const isFile = (fullpath: string): boolean => {
 	return getPathType(fullpath) === 'f'
 }
 const isDirOrFile = (fullpath: string): boolean => {
-    let path = getPathType(fullpath)
+	let path = getPathType(fullpath)
 	return ['f', 'd'].includes(path ? path : '')
 }
 // KNOWN_COMMANDS = [
@@ -382,6 +384,11 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'env', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'uptime', type: 'f', perms: '-rwxr-xr-x', content: `II   P,P<P<-=888 XXXDDStd888 Ptd!!!LLQtdRtdP,P<P</lib64/ld-linux-x86-64.so.2GNUGNUxw?+E2[l)9oGNUI #(emPv,crbA93oB{ ^V] LaF
+    , (3" c!88! ,@0@_ITM_deregisterTMCloneTable__gmon_start___ITM_registerTMCloneTableprocps_uptime_sprint_shortprocps_uptimeprocps_uptime_sprintoptindprogram_invocation_short_namedcgettext__stack_chk_fail__printf_chkferrorgettimeofday__fpendingstdout_exitbindtextdomain__fprintf_chk__libc_start_mainstderr__cxa_finalizelocaltimesetlocalefclosefputsprogram_invocation_name__errno_locationgetopt_long__progname_full__progname__cxa_atexitlibproc2.so.0libc.so.6LIBPROC_2GLIBC_2.3.4GLIBC_2.4GLIBC_2.34GLIBC_2.2.5 iWti iui      PX\`  @???? @(@0@#8@ @@"? ?(?0?8?@H?     P?
+X?
+\`?
+p?x???????????H/Ht5.%.@%.h%.h%.h%.h%.h%.h%.h%.hp%.\`%.h  P%.h`},
 	{name: 'id', type: 'f', perms: '-rwxr-xr-x', content: `@@@   [[x%888 XXXDDStd888 Ptd<<QtdRtd/lib64/ld-linux-x86-64.so.2GNUGNUC
   q!iU¥AGNUBI BDI(emPv,crbA93HBg J*9k"\`1Fo1 X\`_(Ms
                                               %>ȿCDBIF (0 8
@@ -1559,6 +1566,21 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 		return flushBashIo({ stdout: `Shutdown scheduled for ${Date().toString().split('(')[0].slice(0, -1)}, use 'shutdown -c' to cancel.`, stderr: '', exitCode: 0 })
 	} else if (cmd === 'dmesg') {
 		return flushBashIo({ stdout: '', stderr: 'dmesg: read kernel buffer failed: Operation not permitted', exitCode: 1 /* verified */ })
+	} else if (cmd === 'uptime') {
+		let uptime = '7:46'
+		const dateNow = new Date()
+		const time = dateNow.toISOString().slice(11, 19)
+		const upSeconds = (new Date().getTime() - glbBs.upSince.getTime()) / 1000
+		const secsInDay = 86400
+		if(upSeconds > secsInDay) {
+			uptime = `${upSeconds / secsInDay} days`
+		} else {
+			const date = new Date(0)
+			date.setSeconds(upSeconds)
+			uptime = date.toISOString().slice(11, 19)
+		}
+		const uptimeOut = ` ${time} up  ${uptime},  3 users,  load average: 0.00, 0.00, 0.00`
+		return flushBashIo({ stdout: uptimeOut, stderr: '', exitCode: 0 })
 	} else if (cmd === 'id') {
     const idOut = `uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),105(input),109(netdev),117(lpadmin),994(docker),995(nordvpn),997(gpio),998(i2c),999(spi)`
     return flushBashIo({ stdout: idOut, stderr: '', exitCode: 0 })
