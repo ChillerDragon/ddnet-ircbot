@@ -138,7 +138,7 @@ const isPapaChiler = (from: string, isBridge: boolean, say: (msg: string) => voi
 
 export const onShellCommand = (userinput: string, say: (msg: string) => void): void => {
   if (process.env.ALLOW_BASH == '0' ) {
-    say('bash broken because i got hacked')
+    say('bash moved to chat.zillyhuhn.com #off-topic')
     return
   }
   const fake = fakeBash(userinput)
