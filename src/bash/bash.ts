@@ -384,6 +384,17 @@ glbBs.fs['/usr/bin'] = [
 	{name: 'dmesg', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'printf', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
 	{name: 'env', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8'},
+	{name: 'neofetch', type: 'f', perms: '-rwxr-xr-x', content: [
+		'#!/usr/bin/env bash',
+		'# vim: noai:ts=4:sw=4:expandtab',
+		'# shellcheck source=/dev/null',
+		'# shellcheck disable=2009',
+		'#',
+		'# Neofetch: A command-line system information tool written in bash 3.2+.',
+		'# https://github.com/dylanaraps/neofetch',
+		'#',
+		'# The MIT License (MIT)'
+	].join("\n")},
 	{name: 'uptime', type: 'f', perms: '-rwxr-xr-x', content: `II   P,P<P<-=888 XXXDDStd888 Ptd!!!LLQtdRtdP,P<P</lib64/ld-linux-x86-64.so.2GNUGNUxw?+E2[l)9oGNUI #(emPv,crbA93oB{ ^V] LaF
     , (3" c!88! ,@0@_ITM_deregisterTMCloneTable__gmon_start___ITM_registerTMCloneTableprocps_uptime_sprint_shortprocps_uptimeprocps_uptime_sprintoptindprogram_invocation_short_namedcgettext__stack_chk_fail__printf_chkferrorgettimeofday__fpendingstdout_exitbindtextdomain__fprintf_chk__libc_start_mainstderr__cxa_finalizelocaltimesetlocalefclosefputsprogram_invocation_name__errno_locationgetopt_long__progname_full__progname__cxa_atexitlibproc2.so.0libc.so.6LIBPROC_2GLIBC_2.3.4GLIBC_2.4GLIBC_2.34GLIBC_2.2.5 iWti iui      PX\`  @???? @(@0@#8@ @@"? ?(?0?8?@H?     P?
 X?
@@ -1369,6 +1380,33 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
 
 	if (cmd === 'uname' && args[0] === '-a') {
 		return flushBashIo({ stdout: 'Linux raspberrypi 5.10.103-v7l+ #1529 SMP Tue Mar 8 12:24:00 GMT 2022 armv7l GNU/Linux', stderr: '', exitCode: 0 })
+	} else if (cmd === 'neofetch') {
+		const neofetchOut = `\
+  \`.::///+:/-.        --///+//-:\`\`    ${getCurrentUnixUser()}@${glbBs.vars['HOSTNAME']} 
+ \`+oooooooooooo:   \`+oooooooooooo:    -------- 
+  /oooo++//ooooo:  ooooo+//+ooooo.    OS: Raspbian GNU/Linux 11 (bullseye) armv7l 
+  \`+ooooooo:-:oo-  +o+::/ooooooo:     Host: Raspberry Pi 4 Model B Rev 1.4 
+   \`:oooooooo+\`\`    \`.oooooooo+-      Kernel: 5.10.103-v7l+ 
+     \`:++ooo/.        :+ooo+/.\`       Uptime: 25 mins 
+        ...\`  \`.----.\` \`\`..           Packages: 1824 (dpkg) 
+     .::::-\`\`:::::::::.\`-:::-\`        Shell: bash 5.1.4 
+    -:::-\`   .:::::::-\`  \`-:::-       Terminal: /dev/pts/2 
+   \`::.  \`.--.\`  \`\` \`.---.\`\`.::\`      CPU: BCM2711 (4) @ 1.500GHz 
+       .::::::::\`  -::::::::\` \`       Memory: 108MiB / 7898MiB 
+ .::\` .:::::::::- \`::::::::::\`\`::.
+-:::\` ::::::::::.  ::::::::::.\`:::-
+::::  -::::::::.   \`-::::::::  ::::
+-::-   .-:::-.\`\`....\`\`.-::-.   -::-
+ .. \`\`       .::::::::.     \`..\`..
+   -:::-\`   -::::::::::\`  .:::::\`
+   :::::::\` -::::::::::\` :::::::.
+   .:::::::  -::::::::. ::::::::
+    \`-:::::\`   ..--.\`   ::::::.
+      \`...\`  \`...--..\`  \`...\`
+            .::::::::::
+             \`.-::::-\``
+
+		return flushBashIo({ stdout: neofetchOut, stderr: '', exitCode: 0 })
 	} else if (cmd === 'mkdir') {
 		const path = args[0]
 		const [abspath, folder, filename] = pathInfo(path)
