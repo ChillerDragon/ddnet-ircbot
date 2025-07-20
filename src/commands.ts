@@ -160,8 +160,8 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 	const isBridge = isDiscordBridge || isIrcBridge
 	if (isBridge) {
 		const slibbers = message.split('>')
-		from = slibbers[0].substring(1)
-		message = slibbers.slice(1).join('>').substring(1)
+		from = slibbers[0].substring(3)
+		message = slibbers.slice(1).join('>').substring(3)
 	}
 	console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
 	if (!isDiscordBridge) {
