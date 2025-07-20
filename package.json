@@ -24,7 +24,7 @@
   "homepage": "https://github.com/ChillerDragon/ddnet-bot-irc#readme",
   "dependencies": {
     "dotenv": "^16.0.3",
-    "irc": "^0.5.2",
+    "matrix-org-irc": "^3.1.0",
     "typescript": "^5.0.4"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-const irc = require('irc')
+const irc = require('matrix-org-irc')
 require('dotenv').config()
 
 import { onChatMessage } from './commands'
