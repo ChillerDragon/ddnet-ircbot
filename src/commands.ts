@@ -3,6 +3,7 @@ const fs = require('fs')
 const spawn = require('child_process').spawn
 
 import { fakeBash } from './bash/bash'
+import { answerToCommonQuestion } from './qna'
 import { messageQueue } from './queue'
 
 // WTF typescript
@@ -172,6 +173,10 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 		})
 	}
 	if (message[0] !== cmdPrefix() && message[0] !== '!') {
+		const qna = answerToCommonQuestion(message)
+		if(qna && qna !== "") {
+			say(qna)
+		}
 		return
 	}
 
