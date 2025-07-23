@@ -347,6 +347,37 @@ glbBs.fs['/'] = [
   { name: 'usr', type: 'd', perms: 'drwxr-xr-x' },
   { name: 'var', type: 'd', perms: 'drwxr-xr-x' }
 ]
+glbBs.fs['/etc'] = [
+  {
+    name: 'os-release',
+    type: 'f',
+    perms: 'drwxr-xr-x',
+    content: [
+      'VERSION="20.04.6 LTS (Focal Fossa)"',
+      'ID=ubuntu',
+      'ID_LIKE=debian',
+      'PRETTY_NAME="Ubuntu 20.04.6 LTS"',
+      'VERSION_ID="20.04"',
+      'HOME_URL="https://www.ubuntu.com/"',
+      'SUPPORT_URL="https://help.ubuntu.com/"',
+      'BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"',
+      'PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"',
+      'VERSION_CODENAME=focal',
+      'UBUNTU_CODENAME=focal'
+    ].join('\n')
+  },
+  {
+    name: 'passwd',
+    type: 'f',
+    perms: 'drwxr-xr-x',
+    content: [
+      'root:x:0:0::/root:/usr/bin/bash',
+      'bin:x:1:1::/:/usr/bin/nologin',
+      'daemon:x:2:2::/:/usr/bin/nologin'
+    ].join('\n')
+  },
+  { name: 'locale.conf', type: 'f', perms: 'drwxr-xr-x', content: 'LANG=en_US.UTF-8' }
+]
 glbBs.fs['/usr'] = [
   { name: 'bin', type: 'd', perms: 'drwxr-xr-x' },
   { name: 'games', type: 'd', perms: 'drwxr-xr-x' },
@@ -375,6 +406,7 @@ glbBs.fs['/usr/bin'] = [
   { name: 'sh', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
   { name: 'kill', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
   { name: 'echo', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
+  { name: 'w', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
   { name: 'ps', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
   { name: 'which', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
   { name: 'whoami', type: 'f', perms: '-rwxr-xr-x', content: '@m@@p#@pS@8' },
@@ -1640,6 +1672,13 @@ const evalBash = (userinput: string, prevBashResult: BashResult): BashResultIoFl
       'Failed to talk to init daemon.'
     ].join('\n')
     return flushBashIo({ stdout: '', stderr: out, exitCode: 1 /* verified */ })
+  } else if (cmd === 'w') {
+    const out = [
+      '   13:13:42 up  4:41,  1 user,  load average: 0.34, 0.37, 0.39',
+      'USER     TTY       LOGIN@   IDLE   JCPU   PCPU  WHAT',
+      'pi       tty2      08:35    4:40m  0.01s  0.01s /usr/lib/gnome-session-binary'
+    ].join('\n')
+    return flushBashIo({ stdout: '', stderr: out, exitCode: 0 /* verified */ })
   } else if (cmd === 'ps') {
     const pid = !parseInt(getCurrentPid(), 10) ? 755767 : parseInt(getCurrentPid(), 10)
     const out = [
