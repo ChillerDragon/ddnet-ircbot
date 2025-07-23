@@ -1,4 +1,5 @@
 import { fakeBash } from './bash/bash'
+import { getIssueUrls } from './msg_matchers'
 import { answerToCommonQuestion } from './qna'
 import { messageQueue } from './queue'
 
@@ -164,11 +165,13 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
   }
   console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
   if (!isDiscordBridge) {
-    const matches = (message.match(new RegExp('#\\d+', 'g')) != null) || []
-    matches.forEach((match) => {
-      const ghUrl = `https://github.com/ddnet/ddnet/issues/${match.substring(1)}`
+    const ghUrls = getIssueUrls(message)
+    ghUrls.forEach((ghUrl) => {
       say(ghUrl)
     })
+    if (ghUrls.length !== 0) {
+      return
+    }
   }
   if (message[0] !== cmdPrefix() && message[0] !== '!') {
     const qna = answerToCommonQuestion(message)
