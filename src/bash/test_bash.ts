@@ -1,6 +1,6 @@
 import { fakeBash, quoteIfNeeded, getLastIndex, removeBashQuotes, bashWordSplitKeepQuotesEatSpaces, pathInfo, glbBs, bashGlob } from './bash'
 
-import { strict as assert } from 'node:assert';
+import { strict as assert } from 'node:assert'
 
 assert.equal(fakeBash('ls .env'), '.env')
 
@@ -14,10 +14,10 @@ assert.equal(quoteIfNeeded(''), '')
 assert.equal(quoteIfNeeded('hi'), 'hi')
 assert.equal(quoteIfNeeded('hello world'), "'hello world'")
 assert.equal(quoteIfNeeded('hello world ingers'), "'hello world ingers'")
-assert.equal(quoteIfNeeded('wot"nrol'), `'wot"nrol'`)
-assert.equal(quoteIfNeeded("don't"), `"don't"`)
-assert.equal(quoteIfNeeded("don't name your files like this"), `"don't name your files like this"`)
-assert.equal(quoteIfNeeded("foo bar \" baz '"), `'foo bar " baz '\\'''`) // this is verified correct
+assert.equal(quoteIfNeeded('wot"nrol'), '\'wot"nrol\'')
+assert.equal(quoteIfNeeded("don't"), '"don\'t"')
+assert.equal(quoteIfNeeded("don't name your files like this"), '"don\'t name your files like this"')
+assert.equal(quoteIfNeeded("foo bar \" baz '"), '\'foo bar " baz \'\\\'\'\'') // this is verified correct
 
 assert.equal(bashGlob('*'), 'env.example hex_to_pack.py index.js LICENSE .env node_modules package.json package-lock.json ping_pong.csv README.md tags Dockerfile')
 assert.equal(bashGlob('*.py'), 'hex_to_pack.py')
@@ -47,7 +47,7 @@ assert.equal(fakeBash('echo hi | cat | cat | cat'), 'hi\n')
 // assert.equal(fakeBash('throw;echo $?'), '-bash: throw: command not found\n127') // TODO
 
 assert.equal(
-fakeBash('ls'),
+  fakeBash('ls'),
 `.env
 Dockerfile
 LICENSE
@@ -62,10 +62,10 @@ ping_pong.csv
 tags`)
 
 assert.equal(fakeBash('notfound >> should_be_empty.txt'), 'bash: notfound: command not found')
-assert.equal(fakeBash('cat should_be_empty.txt'), "")
+assert.equal(fakeBash('cat should_be_empty.txt'), '')
 
 assert.equal(fakeBash('sudo test >> should_be_empty2.txt'), 'sudo: a password is required')
-assert.equal(fakeBash('cat should_be_empty2.txt'), "")
+assert.equal(fakeBash('cat should_be_empty2.txt'), '')
 
 assert.equal(fakeBash('echo hi >> bar.txt'), '')
 
@@ -76,14 +76,14 @@ assert.equal(fakeBash('sudo test'), 'sudo: a password is required')
 assert.equal(fakeBash('sudo test > foo.txt'), 'sudo: a password is required')
 // assert.equal(fakeBash('cat foo.txt'), "") // TODO: >
 
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo ; bar'), ["foo", ";", "bar"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo ; bar'), ['foo', ';', 'bar'])
 
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;bar'), ["foo", ";", "bar"])
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;'), ["foo", ";"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;bar'), ['foo', ';', 'bar'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo;'), ['foo', ';'])
 
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('ls>a'), ["ls", ">", "a"])
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('willerror &>/dev/null'), ["willerror", "&>", "/dev/null"])
-assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('echo append >> file.txt'), ["echo", "append", ">>", "file.txt"])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('ls>a'), ['ls', '>', 'a'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('willerror &>/dev/null'), ['willerror', '&>', '/dev/null'])
+assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('echo append >> file.txt'), ['echo', 'append', '>>', 'file.txt'])
 
 assert.equal(fakeBash('foo ; bar'), 'bash: foo: command not found\nbash: bar: command not found')
 
@@ -91,9 +91,9 @@ assert.equal(fakeBash('foo;bar'), 'bash: foo: command not found\nbash: bar: comm
 assert.equal(fakeBash('foo; bar'), 'bash: foo: command not found\nbash: bar: command not found')
 assert.equal(fakeBash('"foo";bar'), 'bash: foo: command not found\nbash: bar: command not found')
 
-assert.equal(fakeBash('echo ";"'), ";\n")
-assert.equal(fakeBash("echo ';'"), ";\n")
-assert.equal(fakeBash("echo ';';"), ";\n")
+assert.equal(fakeBash('echo ";"'), ';\n')
+assert.equal(fakeBash("echo ';'"), ';\n')
+assert.equal(fakeBash("echo ';';"), ';\n')
 
 assert.equal(fakeBash(';;'), "-bash: syntax error near unexpected token `;'")
 assert.equal(fakeBash('ls;;'), "-bash: syntax error near unexpected token `;'")
@@ -103,10 +103,10 @@ assert.equal(fakeBash(';;;;;;'), "-bash: syntax error near unexpected token `;'"
 
 assert.equal(fakeBash('ls "'), 'unexpected EOF while looking for matching `"\'')
 
-assert.equal(fakeBash(`echo "foo'bar'"`), `foo'bar'\n`)
-assert.equal(fakeBash(`echo "foo'bar''"`), `foo'bar''\n`)
+assert.equal(fakeBash('echo "foo\'bar\'"'), 'foo\'bar\'\n')
+assert.equal(fakeBash('echo "foo\'bar\'\'"'), 'foo\'bar\'\'\n')
 
-assert.equal(fakeBash(`cat "foo'bar"`), `cat: foo'bar: No such file or directory`) // technically wrong but close enough
+assert.equal(fakeBash('cat "foo\'bar"'), 'cat: foo\'bar: No such file or directory') // technically wrong but close enough
 // assert.equal(fakeBash(`cat "foo'bar"`), `cat: "foo'bar": No such file or directory`) // this would be the correct on
 
 // assert.equal(fakeBash('foo > bar'), 'bash: foo: command not found')
@@ -115,10 +115,10 @@ assert.equal(removeBashQuotes('foo'), 'foo')
 assert.equal(removeBashQuotes('"foo"'), 'foo')
 assert.equal(removeBashQuotes("'foo'"), 'foo')
 assert.equal(removeBashQuotes("'foo'bar"), 'foobar')
-assert.equal(removeBashQuotes(`'foo'"bar"`), 'foobar')
-assert.equal(removeBashQuotes(`'foo'" bar"`), 'foo bar')
-assert.equal(removeBashQuotes(`hello "WO'W"`), "hello WO'W")
-assert.equal(removeBashQuotes(`hello 'WO"W'`), 'hello WO"W')
+assert.equal(removeBashQuotes('\'foo\'"bar"'), 'foobar')
+assert.equal(removeBashQuotes('\'foo\'" bar"'), 'foo bar')
+assert.equal(removeBashQuotes('hello "WO\'W"'), "hello WO'W")
+assert.equal(removeBashQuotes('hello \'WO"W\''), 'hello WO"W')
 
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces('foo'), ['foo'])
 assert.deepEqual(bashWordSplitKeepQuotesEatSpaces(''), [''])
@@ -251,21 +251,21 @@ assert.equal(fakeBash('echo $innerouter'), 'OUTER\n')
 // vars should not expand in single quotes or double expand
 // not working yet too lazy to bother i wanna go on
 assert.equal(fakeBash("foo='$HOME'"), '')
-assert.equal(fakeBash("echo $foo"), '$HOME\n')
-assert.equal(fakeBash("echo $foo $foo"), '$HOME $HOME\n')
+assert.equal(fakeBash('echo $foo'), '$HOME\n')
+assert.equal(fakeBash('echo $foo $foo'), '$HOME $HOME\n')
 
 // non alpha numeric vars
-assert.equal(fakeBash("echo $$"), '24410\n')
-assert.equal(fakeBash("echo ${$}"), '24410\n')
-assert.equal(fakeBash("echo $$$"), '24410$\n')
-assert.equal(fakeBash("echo ${$}$"), '24410$\n')
-assert.equal(fakeBash("echo $?"), '0\n')
-assert.equal(fakeBash("echo ${?}"), '0\n')
-assert.equal(fakeBash("echo $??"), '0?\n')
+assert.equal(fakeBash('echo $$'), '24410\n')
+assert.equal(fakeBash('echo ${$}'), '24410\n')
+assert.equal(fakeBash('echo $$$'), '24410$\n')
+assert.equal(fakeBash('echo ${$}$'), '24410$\n')
+assert.equal(fakeBash('echo $?'), '0\n')
+assert.equal(fakeBash('echo ${?}'), '0\n')
+assert.equal(fakeBash('echo $??'), '0?\n')
 
-assert.equal(fakeBash("printf hi"), 'hi')
-assert.equal(fakeBash("printf -v x hi"), '')
-assert.equal(fakeBash("printf $x"), 'hi')
+assert.equal(fakeBash('printf hi'), 'hi')
+assert.equal(fakeBash('printf -v x hi'), '')
+assert.equal(fakeBash('printf $x'), 'hi')
 assert.equal(fakeBash("printf -v iggs '$x'"), '')
 assert.equal(fakeBash('printf "$iggs"'), '$x')
 assert.equal(fakeBash("printf '$iggs'"), '$iggs')
@@ -339,7 +339,7 @@ assert.equal(fakeBash('cd $HOME'), '')
 assert.equal(fakeBash('pwd'), '/home/pi')
 
 assert.equal(fakeBash('id'), 'uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),105(input),109(netdev),117(lpadmin),994(docker),995(nordvpn),997(gpio),998(i2c),999(spi)')
-assert.match(fakeBash('uptime'), / \d\d:\d\d:\d\d up  00:00:00,  3 users,  load average: 0.00, 0.00, 0.00/)
+assert.match(fakeBash('uptime'), / \d\d:\d\d:\d\d up {2}00:00:00, {2}3 users, {2}load average: 0.00, 0.00, 0.00/)
 
 assert.equal(fakeBash('cat /'), 'cat: /: Is a directory')
 assert.equal(fakeBash('cat /usr'), 'cat: /usr: Is a directory')
@@ -364,18 +364,18 @@ assert.equal(fakeBash('cat /*'), 'cat: /bin: Is a directory\n' +
     'cat: /usr: Is a directory\n' +
     'cat: /var: Is a directory')
 
-glbBs.vars['PWD'] = '/home/pi/test'
-assert.deepEqual(pathInfo(".."), ['/home/pi', '/home', null])
-glbBs.vars['PWD'] = '/home/pi'
-assert.deepEqual(pathInfo("."), ['/home/pi', '/home', null])
-assert.deepEqual(pathInfo("~"), ['/home/pi', '/home', 'pi'])
-assert.deepEqual(pathInfo(".."), ['/home', '/', null])
+glbBs.vars.PWD = '/home/pi/test'
+assert.deepEqual(pathInfo('..'), ['/home/pi', '/home', null])
+glbBs.vars.PWD = '/home/pi'
+assert.deepEqual(pathInfo('.'), ['/home/pi', '/home', null])
+assert.deepEqual(pathInfo('~'), ['/home/pi', '/home', 'pi'])
+assert.deepEqual(pathInfo('..'), ['/home', '/', null])
 
-assert.deepEqual(pathInfo("foo"), ['/home/pi/foo', '/home/pi', 'foo'])
-assert.deepEqual(pathInfo("foo/bar"), ['/home/pi/foo/bar', '/home/pi/foo', 'bar'])
-assert.deepEqual(pathInfo("foo/bar/baz.txt"), ['/home/pi/foo/bar/baz.txt', '/home/pi/foo/bar', 'baz.txt'])
-assert.deepEqual(pathInfo("/"), ['/', '/', null])
-assert.deepEqual(pathInfo("/tmp"), ['/tmp', '', 'tmp'])
-assert.deepEqual(pathInfo("/tmp/test.txt"), ['/tmp/test.txt', '/tmp', 'test.txt'])
-assert.deepEqual(pathInfo("/tmp/ntested/test.txt"), ['/tmp/ntested/test.txt', '/tmp/ntested', 'test.txt'])
-assert.deepEqual(pathInfo("/tmp/ntested/"), ['/tmp/ntested', '/tmp/ntested', null])
+assert.deepEqual(pathInfo('foo'), ['/home/pi/foo', '/home/pi', 'foo'])
+assert.deepEqual(pathInfo('foo/bar'), ['/home/pi/foo/bar', '/home/pi/foo', 'bar'])
+assert.deepEqual(pathInfo('foo/bar/baz.txt'), ['/home/pi/foo/bar/baz.txt', '/home/pi/foo/bar', 'baz.txt'])
+assert.deepEqual(pathInfo('/'), ['/', '/', null])
+assert.deepEqual(pathInfo('/tmp'), ['/tmp', '', 'tmp'])
+assert.deepEqual(pathInfo('/tmp/test.txt'), ['/tmp/test.txt', '/tmp', 'test.txt'])
+assert.deepEqual(pathInfo('/tmp/ntested/test.txt'), ['/tmp/ntested/test.txt', '/tmp/ntested', 'test.txt'])
+assert.deepEqual(pathInfo('/tmp/ntested/'), ['/tmp/ntested', '/tmp/ntested', null])

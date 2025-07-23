@@ -1,5 +1,5 @@
-import { onChatMessage, onShellCommand } from "./commands"
-import { messageQueue } from "./queue"
+import { onChatMessage, onShellCommand } from './commands'
+import { messageQueue } from './queue'
 
 const readline = require('readline')
 
@@ -24,19 +24,19 @@ console.log('just chat with the bot')
 console.log('************************************************')
 
 const say = (msg: string) => {
-	if (!msg) {
-		return
-	}
-	console.log('<chillerbot>', msg)
+  if (!msg) {
+    return
+  }
+  console.log('<chillerbot>', msg)
 }
 
 let shellMode = true
-if(shellMode) {
+if (shellMode) {
   console.log('shell mode is active write $exit to return to chat')
 }
 
 const prompt = () => {
-  if(messageQueue().length > 0) {
+  if (messageQueue().length > 0) {
     return
   }
   process.stdout.write(shellMode ? '$ ' : '> ')
@@ -53,7 +53,7 @@ rl.on('line', (line: string) => {
   } else if (shellMode) {
     onShellCommand(line, say)
   } else {
-    onChatMessage("testuser", line, say)
+    onChatMessage('testuser', line, say)
   }
   prompt()
 })
@@ -63,12 +63,11 @@ rl.once('close', () => {
 })
 
 const printQueue = () => {
-	if (messageQueue().length <= 0) {
-		return
-	}
-	const msg = messageQueue().shift()
-	if(msg)
-		say(msg)
+  if (messageQueue().length <= 0) {
+    return
+  }
+  const msg = messageQueue().shift()
+  if (msg) { say(msg) }
   prompt()
 }
 
