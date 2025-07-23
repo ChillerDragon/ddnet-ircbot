@@ -7,7 +7,7 @@
     "build": "tsc",
     "run": "tsc;node dist/index.js",
     "dev": "npx ts-node src/interactive_test.ts",
-    "test": "npx ts-node src/bash/test_bash.ts"
+    "test": "npx ts-node src/bash/test_bash.ts && npx ts-node src/test/test_qna.ts"
   },
   "repository": {
     "type": "git",
