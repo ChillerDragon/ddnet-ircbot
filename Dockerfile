@@ -1,4 +1,4 @@
-FROM node:18-slim
+FROM node:22-slim
 
 RUN apt-get update -y && apt-get install python3 python3-pip coreutils procps build-essential curl -y
 
