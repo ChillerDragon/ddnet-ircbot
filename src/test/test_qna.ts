@@ -9,3 +9,4 @@ assert.equal(answerToCommonQuestion('where cna i has download clang formats nuts
 
 const donate = 'You can see donors and how to donate here https://ddnet.org/funding/'
 assert.equal(answerToCommonQuestion('where donate i can???'), donate)
+assert.equal(answerToCommonQuestion('You know what I liked? Heinrichs proposal to move all backcimpat to a completely separate module'), '')
