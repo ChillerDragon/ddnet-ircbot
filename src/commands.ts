@@ -1,5 +1,6 @@
 import { fakeBash } from './bash/bash'
 import { getIssueUrls } from './msg_matchers'
+import { getRndInteger } from './naming_things_util_is_bad'
 import { answerToCommonQuestion } from './qna'
 import { messageQueue } from './queue'
 
@@ -190,7 +191,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
   if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
     say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
-			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash)`
+			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix}roll ?[from|to] ?[to]`
     )
   } else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
     if (!isPapaChiler(from, isBridge, say)) {
@@ -251,6 +252,26 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
     fs.appendFileSync('ping_pong.csv', `${args[0]}, ${args.slice(1).join(' ')}\n`)
+  } else if (['roll', 'rand'].includes(cmd)) {
+    let fromRand = 0
+    let toRand = 100
+    if (args.length === 2) {
+      fromRand = parseInt(args[0], 10)
+      toRand = parseInt(args[1], 10)
+    } else if (args.length == 1) {
+      toRand = parseInt(args[0], 10)
+    } else if (args.length > 1) {
+      say('usage: !roll ?[from|to] ?[to]')
+      return
+    }
+
+    if(fromRand > toRand) {
+      say('fatal internal error: javascript runtime buffer inter flow')
+      return
+    }
+
+    const randVal = getRndInteger(fromRand, toRand)
+    say(randVal.toString())
   } else if (cmd === 'quiz') {
     if (process.env.ALLOW_QUIZ != '1') {
       // say('quiz off')
