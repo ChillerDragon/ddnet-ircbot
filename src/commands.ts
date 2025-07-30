@@ -281,6 +281,17 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 
     const randVal = getRndInteger(fromRand, toRand)
     say(randVal.toString())
+  } else if (cmd === 'ddos') {
+    if (args.length !== 1) {
+      say('usage: !ddos [server ip]')
+      return
+    }
+    if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(args[0])) {
+      say('invalid ip')
+      return
+    }
+
+    say(`ddosing game server ${args[0]} ...`)
   } else if (cmd === 'quiz') {
     if (process.env.ALLOW_QUIZ != '1') {
       // say('quiz off')
