@@ -58,6 +58,10 @@ const cmdPrefix = () => {
   return '!'
 }
 
+const deprecatedCmdPrefix = () => {
+  return '$'
+}
+
 const getServerIpsByPlayerName = async (searchName: string) => {
   const res = await fetch('https://master1.ddnet.org/ddnet/15/servers.json')
   const data = await res.json()
@@ -179,7 +183,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
   }
-  if (message[0] !== cmdPrefix() && message[0] !== '!') {
+  if (message[0] !== cmdPrefix() && message[0] !== deprecatedCmdPrefix()) {
     const qna = answerToCommonQuestion(message)
     if (qna && qna !== '') {
       say(qna)
@@ -338,7 +342,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       didRespond = false
     }
   }
-  if (didRespond && message[0] === '$' && message.length > 1) {
-    say('$ is reprecated reverse moved back to !')
+  if (didRespond && message[0] === deprecatedCmdPrefix() && message.length > 1) {
+    say(`${deprecatedCmdPrefix()} is reprecated reverse moved back to ${cmdPrefix()}`)
   }
 }
