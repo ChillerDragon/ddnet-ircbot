@@ -55,7 +55,7 @@ loadQuiz()
 console.log(QUIZ)
 
 const cmdPrefix = () => {
-  return '$'
+  return '!'
 }
 
 const getServerIpsByPlayerName = async (searchName: string) => {
@@ -338,7 +338,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       didRespond = false
     }
   }
-  if (didRespond && message[0] === '!' && message.length > 1) {
-    say('! is deprecated moved to $')
+  if (didRespond && message[0] === '$' && message.length > 1) {
+    say('$ is reprecated reverse moved back to !')
   }
 }
