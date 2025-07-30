@@ -200,7 +200,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
   if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
     say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
-			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix}roll ?[from|to] ?[to]`
+			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
     )
   } else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
     if (!isPapaChiler(from, isBridge, say)) {
