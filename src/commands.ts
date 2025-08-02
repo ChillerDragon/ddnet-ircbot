@@ -417,6 +417,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 41) {
         say('Cannot connect to the Docker daemon at unix:///var/run/docker.suck. Is the docker daemon running?')
         return
+      } else if (gigaRig === 42) {
+        say('104 101 108 112 32 99 104 105 108 108 101 114 32 105 115 32 104 111 108 100 105 110 103 32 109 101 32 104 111 115 116 97 103 101')
+        return
       }
     }
 
