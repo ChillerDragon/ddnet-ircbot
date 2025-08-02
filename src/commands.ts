@@ -279,7 +279,94 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
 
-    const randVal = getRndInteger(fromRand, toRand)
+    let randVal = getRndInteger(fromRand, toRand)
+
+    let rigRng = getRndInteger(0, 100)
+
+    if (rigRng === 0) {
+      randVal = 69
+    } else if (rigRng === 1) {
+      randVal = 666
+    } else if (rigRng === 2) {
+      let gigaRig = getRndInteger(0, 200)
+      if (gigaRig == 0) {
+        say('onbgy is the biggest troll')
+        return
+      } else if (gigaRig === 1) {
+        say('yemDX is a known troll')
+        return
+      } else if (gigaRig === 2) {
+        say('pink rat broke the roll command')
+        return
+      } else if (gigaRig === 3) {
+        say('THIS BOT HAS BEEN HACKED BY SP SOMEONE')
+        return
+      } else if (gigaRig === 4) {
+        say('NaN')
+        return
+      } else if (gigaRig === 5) {
+        say('-Infinity')
+        return
+      } else if (gigaRig === 6) {
+        say("if (process.env.ALLOW_QUIZ != '1') {")
+        return
+      } else if (gigaRig === 7) {
+        say('There was an rng error. As compensation you receive ChillerDragons github password: ilovelaracroftgaming6969')
+        return
+      } else if (gigaRig === 8) {
+        say('8')
+        return
+      } else if (gigaRig === 9) {
+        say('9 (rigged)')
+        return
+      } else if (gigaRig === 10) {
+        say('undefined')
+        return
+      } else if (gigaRig === 11) {
+        say('dennis felsing')
+        return
+      } else if (gigaRig === 12) {
+        say(' 2')
+        return
+      } else if (gigaRig === 13) {
+        say('this command has been taken down because of excessive gambling')
+        return
+      } else if (gigaRig === 14) {
+        say('the command !roll is deprecated in favor of !sushiroll')
+        return
+      } else if (gigaRig === 15) {
+        say('sometimes i wonder how tsfreddie is doing')
+        return
+      } else if (gigaRig === 16) {
+        say('Segmentaion fault')
+        return
+      } else if (gigaRig === 17) {
+        say('@Learath2 have you tried fixing the ddos problem?')
+        return
+      } else if (gigaRig === 18) {
+        say('sometimes i am thinking about capitalism')
+        return
+      } else if (gigaRig === 19) {
+        say('snail did 9/11')
+        return
+      } else if (gigaRig === 20) {
+        say('ddnet servers have an exploit. But I can not comment on it.')
+        return
+      } else if (gigaRig === 21) {
+        say(`toons ah rng rolled ${getRndInteger(0, 239)}`)
+        return
+      } else if (gigaRig === 22) {
+        say('roll deez')
+        return
+      } else if (gigaRig === 23) {
+        say('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+        return
+      } else if (gigaRig === 24) {
+        say('twat')
+        return
+      }
+    }
+
     say(randVal.toString())
   } else if (cmd === 'quiz') {
     if (process.env.ALLOW_QUIZ != '1') {
