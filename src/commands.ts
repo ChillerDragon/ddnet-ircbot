@@ -420,6 +420,30 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 42) {
         say('104 101 108 112 32 99 104 105 108 108 101 114 32 105 115 32 104 111 108 100 105 110 103 32 109 101 32 104 111 115 116 97 103 101')
         return
+      } else if (gigaRig === 43) {
+        say('Are you a human? Please solve this captcha first https://captcha.zillyhuhn.com/')
+        return
+      } else if (gigaRig === 44) {
+        say(Math.random().toString())
+        return
+      } else if (gigaRig === 44) {
+        say(`${randVal.toString()}'`)
+        return
+      } else if (gigaRig === 45) {
+        say(`${randVal.toString()} a`)
+        return
+      } else if (gigaRig === 46) {
+        say(`skibidi rigma ${randVal.toString()}`)
+        return
+      } else if (gigaRig === 47) {
+        say('sick')
+        return
+      } else if (gigaRig === 48) {
+        say(`You are the 10000th user of the roll command! The number you rolled: ${randVal.toString()}`)
+        return
+      } else if (gigaRig === 49) {
+        say('Bro this is the #developer channel. Go #off-topic with this bs')
+        return
       }
     }
 
