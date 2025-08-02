@@ -364,6 +364,59 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 24) {
         say('twat')
         return
+      } else if (gigaRig === 25) {
+        say('skibidi sigma')
+        return
+      } else if (gigaRig === 26) {
+        say('sometimes i wonder why blocking is not allowed in ddnet')
+        return
+      } else if (gigaRig === 27) {
+        // actually not rigged xd
+        // but how would they know
+        say(`${randVal.toString()} (rigged)`)
+        return
+      } else if (gigaRig === 28) {
+        say("Request timed out: HTTPSConnectionPool(host='api.openai.com', port=443): Read timed out. (read timeout=600)")
+        return
+      } else if (gigaRig === 29) {
+        say('The holy orcale is on vacation. Try again later')
+        return
+      } else if (gigaRig === 30) {
+        say('No such command !roll did you mean !rickroll?')
+        return
+      } else if (gigaRig === 31) {
+        say('Sigmatation fault')
+        return
+      } else if (gigaRig === 32) {
+        say('@ryozuki there are more than 100 open prs — go close some')
+        return
+      } else if (gigaRig === 33) {
+        say('1                                                                  7')
+        return
+      } else if (gigaRig === 34) {
+        say('Donaudampfschifffahrtselektrizitätenhauptbetriebswerkbauunternehmenbeamtengesellschaft')
+        return
+      } else if (gigaRig === 35) {
+        say('bWFkZSB5b3UgbG9vaywgZm9vbA==')
+        return
+      } else if (gigaRig === 36) {
+        say('5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
+        return
+      } else if (gigaRig === 37) {
+        say('(646) 926-6614')
+        return
+      } else if (gigaRig === 38) {
+        say('(248) 434-5508')
+        return
+      } else if (gigaRig === 39) {
+        say('3.14')
+        return
+      } else if (gigaRig === 40) {
+        say('42')
+        return
+      } else if (gigaRig === 41) {
+        say('Cannot connect to the Docker daemon at unix:///var/run/docker.suck. Is the docker daemon running?')
+        return
       }
     }
 
