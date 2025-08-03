@@ -444,6 +444,108 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 49) {
         say('Bro this is the #developer channel. Go #off-topic with this bs')
         return
+      } else if (gigaRig === 50) {
+        say('Gorbatschow')
+        return
+      } else if (gigaRig === 51) {
+        say('This message means I pressed f4')
+        return
+      } else if (gigaRig === 52) {
+        say('bro, checkout this client: chillerbot.github.io')
+        return
+      } else if (gigaRig === 53) {
+        say('the !roll command is currently deactivated for discord users')
+        return
+      } else if (gigaRig === 54) {
+        say('No such command !roll did you mean !rice')
+        return
+      } else if (gigaRig === 55) {
+        say('missing permissions try: sudo !roll')
+        return
+      } else if (gigaRig === 56) {
+        say('https://ddnet.org/players/Mithrandir/')
+        return
+      } else if (gigaRig === 57) {
+        say('Stronghold 2')
+        return
+      } else if (gigaRig === 58) {
+        say('Genericore 5')
+        return
+      } else if (gigaRig === 59) {
+        say('html is a programming language')
+        return
+      } else if (gigaRig === 60) {
+        say('fng > gores')
+        return
+      } else if (gigaRig === 61) {
+        say('python > rust')
+        return
+      } else if (gigaRig === 62) {
+        say('bubble tea')
+        return
+      } else if (gigaRig === 63) {
+        say('https://www.youtube.com/watch?v=Ywfk2z1yZf4&list=PLDtPxwYnsMY23yG3EktGRZ2bhsuoqEv6F')
+        return
+      } else if (gigaRig === 64) {
+        say("Can't roll right now. I am currently playing zCatch")
+        return
+      } else if (gigaRig === 65) {
+        say('Du kannst mir mal den Buckel runterlutschen')
+        return
+      } else if (gigaRig === 66) {
+        say('Capitalism.')
+        return
+      } else if (gigaRig === 67) {
+        say('Is today a good day to buy crypto?')
+        return
+      } else if (gigaRig === 68) {
+        say('https://ddnet.org/maps/NiggoDrag/')
+        return
+      } else if (gigaRig === 69) {
+        say('69')
+        return
+      } else if (gigaRig === 70) {
+        say('https://ddnet.org/players/lola/')
+        return
+      } else if (gigaRig === 71) {
+        say('https://ddnet.org/players/Jesus-32-Christ/')
+        return
+      } else if (gigaRig === 72) {
+        say('https://github.com/ddnet-insta/antibot-insta/issues/2891')
+        return
+      } else if (gigaRig === 73) {
+        say('first milk or cornskates?')
+        return
+      } else if (gigaRig === 74) {
+        say('bash error')
+        return
+      } else if (gigaRig === 75) {
+        say('unsafe bash')
+        return
+      } else if (gigaRig === 76) {
+        say('free spsomeone')
+        return
+      } else if (gigaRig === 77) {
+        say('rolling stone')
+        return
+      } else if (gigaRig === 78) {
+        say('skibidi tripma')
+        return
+      } else if (gigaRig === 79) {
+        say('есть русские?')
+        return
+      } else if (gigaRig === 80) {
+        say('Twinbop')
+        return
+      } else if (gigaRig === 81) {
+        say('Twinhop')
+        return
+      } else if (gigaRig === 82) {
+        say('I think there is a merge conflict.')
+        return
+      } else if (gigaRig === 83) {
+        say('@0xdeen i reset my pc. Please add this ssh key to all servers again: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICeZCrrTjDOlPd+mXkDBPH9ktO4wUA5V9IlUlrusznZA chiller@debian')
+        return
       }
     }
 
