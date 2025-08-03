@@ -165,7 +165,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
   const isBridge = isDiscordBridge || isIrcBridge
   if (isBridge) {
     const slibbers = message.split('>')
-    if(isIrcBridge) {
+    if (isIrcBridge) {
       from = slibbers[0].substring(3)
       message = slibbers.slice(1).join('>').substring(3)
     } else {
@@ -274,21 +274,21 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
 
-    if(fromRand > toRand) {
+    if (fromRand > toRand) {
       say('fatal internal error: javascript runtime buffer inter flow')
       return
     }
 
     let randVal = getRndInteger(fromRand, toRand)
 
-    let rigRng = getRndInteger(0, 100)
+    const rigRng = getRndInteger(0, 100)
 
     if (rigRng === 0) {
       randVal = 69
     } else if (rigRng === 1) {
       randVal = 666
     } else if (rigRng === 2) {
-      let gigaRig = getRndInteger(0, 200)
+      const gigaRig = getRndInteger(0, 200)
       if (gigaRig == 0) {
         say('onbgy is the biggest troll')
         return

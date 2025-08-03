@@ -1,8 +1,8 @@
-const irc = require('matrix-org-irc')
-require('dotenv').config()
-
 import { onChatMessage } from './commands'
 import { messageQueue } from './queue'
+
+const irc = require('matrix-org-irc')
+require('dotenv').config()
 
 if (!process.env.IRC_CHANNEL) {
   console.log('Error: IRC_CHANNEL is not set! check your .env file')

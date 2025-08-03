@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert'
-import { getIssueUrls } from '../msg_matchers'
+import { getIssueUrls, getMessageTextWithoutCodeSnippets } from '../msg_matchers'
 
 assert.deepEqual(getIssueUrls(''), [])
 assert.deepEqual(getIssueUrls('no match'), [])
@@ -14,3 +14,12 @@ assert.deepEqual(getIssueUrls('ddnet#444'), ['https://github.com/ddnet/ddnet/iss
 assert.deepEqual(getIssueUrls('tclient#42'), ['https://github.com/sjrc6/TaterClient-ddnet/issues/42'])
 assert.deepEqual(getIssueUrls('xxxxxtclient#42'), ['https://github.com/ddnet/ddnet/issues/42'])
 assert.deepEqual(getIssueUrls(' #42 rs#7 tc#3'), ['https://github.com/ddnet/ddnet/issues/42', 'https://github.com/ddnet/ddnet-rs/issues/7', 'https://github.com/sjrc6/TaterClient-ddnet/issues/3'])
+
+assert.deepEqual(getMessageTextWithoutCodeSnippets('hello world'), ['hello world'])
+assert.deepEqual(getMessageTextWithoutCodeSnippets('hi devs ``int a = 2;`` waddup'), ['hi devs ', ' waddup'])
+assert.deepEqual(getMessageTextWithoutCodeSnippets('nested ```  deez` nuts ``` nice'), ['nested ', ' nice'])
+assert.deepEqual(getMessageTextWithoutCodeSnippets('missing ``` close'), ['missing ', '``` close'])
+assert.deepEqual(getMessageTextWithoutCodeSnippets('develop``er``a'), ['develop', 'a'])
+assert.deepEqual(getMessageTextWithoutCodeSnippets('don`t'), ['don', '`t'])
+
+assert.deepEqual(getIssueUrls('#1 ``#2`` #3'), ['https://github.com/ddnet/ddnet/issues/1', 'https://github.com/ddnet/ddnet/issues/3'])
