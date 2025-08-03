@@ -546,6 +546,18 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 83) {
         say('@0xdeen i reset my pc. Please add this ssh key to all servers again: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICeZCrrTjDOlPd+mXkDBPH9ktO4wUA5V9IlUlrusznZA chiller@debian')
         return
+      } else if (gigaRig === 84) {
+        say('Souly')
+        return
+      } else if (gigaRig === 85) {
+        say('Solly')
+        return
+      } else if (gigaRig === 86) {
+        say('nouis')
+        return
+      } else if (gigaRig === 87) {
+        say('bencie rules')
+        return
       }
     }
 
