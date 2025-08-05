@@ -558,6 +558,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 87) {
         say('bencie rules')
         return
+      } else if (gigaRig === 88) {
+        say('Hold on — I am currently downloading my wife ...')
+        return
       }
     }
 
