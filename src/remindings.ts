@@ -21,9 +21,9 @@ export const checkRemindings = (say: (msg: string) => void) => {
   const now = new Date()
   let numDropped = 0
   const filteredRemindings = remindings.filter((reminding) => {
-    const nowSecs = now.getSeconds()
-    const remindSecs = reminding.remindDate.getSeconds()
-    const remindInSeconds = remindSecs - nowSecs
+    const nowSecs = now.getTime()
+    const remindSecs = reminding.remindDate.getTime()
+    const remindInSeconds = Math.floor((remindSecs - nowSecs) / 1000)
     console.log(`remind in=${remindInSeconds} now=${nowSecs} remindat=${remindSecs}`)
     if(remindInSeconds > 0) {
       return true
