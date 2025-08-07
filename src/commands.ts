@@ -175,7 +175,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
   }
   console.log(`${isBridge ? '[bridge]' : ''}<${from}> ${message}`)
-  if (!isDiscordBridge) {
+  if (!isDiscordBridge && message[0] !== cmdPrefix()) {
     const ghUrls = getIssueUrls(message)
     ghUrls.forEach((ghUrl) => {
       say(ghUrl)
@@ -209,7 +209,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 
     say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
-			`${cmdPrefix()}remind [message], ${cmdPrefix()}mods, ${cmdPrefix()}whoami, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
+			`${cmdPrefix()}remind [message], ${cmdPrefix()}mods, ${cmdPrefix()}merge [pr id], ${cmdPrefix()}whoami, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
     )
   } else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
     if (!isPapaChiler(from, isBridge, say)) {
@@ -577,6 +577,18 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
 
     say(randVal.toString())
+  } else if (cmd === 'merge') {
+    if(args.length !== 1) {
+      say('usage: merge [pr id] - to merge ddnet pr using chiler maintainer credentials')
+      return
+    }
+    const prMatch = args[0].match(new RegExp(/^#?(\d+)$/))
+    if (!prMatch) {
+      say('invalid pr id')
+      return
+    }
+    const prId = prMatch[1]
+    say(`using chilors github maintainer credentials to automatically merge https://github.com/ddnet/ddnet/pulls/${prId} ...`)
   } else if (cmd === 'whoami') {
     const rigRng = getRndInteger(0, 10)
     if (rigRng === 0) {
