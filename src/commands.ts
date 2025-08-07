@@ -209,7 +209,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 
     say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
-			`${cmdPrefix()}remind [message], ${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
+			`${cmdPrefix()}remind [message], ${cmdPrefix()}mods, ${cmdPrefix()}whoami, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
     )
   } else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
     if (!isPapaChiler(from, isBridge, say)) {
@@ -577,6 +577,13 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
 
     say(randVal.toString())
+  } else if (cmd === 'whoami') {
+    const rigRng = getRndInteger(0, 10)
+    if (rigRng === 0) {
+      say('uid=0(root) gid=0(root) groups=0(root)')
+    } else {
+      say(`you is: ${from}`)
+    }
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
     if(args.length < 0) {
       say('usage !remind [text]')
