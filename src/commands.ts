@@ -199,9 +199,17 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
   const args = words.slice(1)
   let didRespond = true
   if (cmd === 'help' || cmd === 'where' || cmd === 'info') {
+    // const commands = [
+    //   ['mods', ''],
+    //   ['p', '[hex traffic]'],
+    //   ['sh', '[bash]'],
+    //   ['roll', '?[from|to] ?[to]'],
+    //   ['remind', '[message]']
+    // ]
+
     say(
 			`https://github.com/ChillerDragon/ddnet-bot-irc eth0=${eth0} commands:` +
-			`${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
+			`${cmdPrefix()}remind [message], ${cmdPrefix()}mods, ${cmdPrefix()}ping, ${cmdPrefix()}p (hex traffixc), ${cmdPrefix()}sh (bash), ${cmdPrefix()}roll ?[from|to] ?[to]`
     )
   } else if (cmd === 'mods' || cmd === 'mod' || cmd === 'moderator') {
     if (!isPapaChiler(from, isBridge, say)) {
