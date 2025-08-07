@@ -1,3 +1,5 @@
+import { getRndInteger } from "./naming_things_util_is_bad"
+
 export class Reminding {
   // what to be reminded about
   message: string
@@ -32,7 +34,18 @@ export const checkRemindings = (say: (msg: string) => void) => {
       return true
     }
     numDropped++
-    say(`Elo @${reminding.remindee} I just wanted to remind you that: ${reminding.message}`)
+    const rigRng = getRndInteger(0, 10)
+    if(rigRng === 0) {
+      say(`omagawd @${reminding.remindee} I almost forgor to mind you about: ${reminding.message}`)
+    } else if(rigRng === 1) {
+      say(`ding dong ping pong @${reminding.remindee}  @${reminding.remindee} @${reminding.remindee} @${reminding.remindee}: ${reminding.message}`)
+    } else if(rigRng === 2) {
+      say(`yo @${reminding.remindee} keep in mind to: ${reminding.message}`)
+    } else if(rigRng === 3) {
+      say(`DO NOT FORGET @${reminding.remindee} TO: ${reminding.message}`)
+    } else {
+      say(`Elo @${reminding.remindee} I just wanted to remind you that: ${reminding.message}`)
+    }
     return false
   })
   if(remindings.length !== filteredRemindings.length) {
