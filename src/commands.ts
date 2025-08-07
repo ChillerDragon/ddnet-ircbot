@@ -3,6 +3,7 @@ import { getIssueUrls } from './msg_matchers'
 import { getRndInteger } from './naming_things_util_is_bad'
 import { answerToCommonQuestion } from './qna'
 import { messageQueue } from './queue'
+import { remindings, Reminding } from './remindings'
 
 const { networkInterfaces } = require('os')
 const fs = require('fs')
@@ -565,6 +566,22 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
 
     say(randVal.toString())
+  } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
+    if(args.length < 0) {
+      say('usage !remind [text]')
+      return
+    }
+    if(remindings.length > 10) {
+      say(`There are already 10 remindingsbums pending. To unlock more consider buying chillerbot premium subscription.`)
+      return
+    }
+
+    // const remindDelay = 24 * 60 * 60 * 1000
+    const remindDelay = 2 * 60
+    const remindDate = new Date(Date.now() + remindDelay)
+    const reminding = new Reminding(args.join(' '), from, remindDate)
+    remindings.push(reminding)
+    say(`Helo ${from} I will remind you in ${remindDelay} time units about your matter again.`)
   } else if (cmd === 'quiz') {
     if (process.env.ALLOW_QUIZ != '1') {
       // say('quiz off')
