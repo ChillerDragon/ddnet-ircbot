@@ -1,7 +1,6 @@
 import { onChatMessage } from './commands'
 import { messageQueue } from './queue'
-import { checkRemindings } from './remindings'
-const cron = require('node-cron')
+import { checkRemindings, remindings } from './remindings'
 
 const irc = require('matrix-org-irc')
 require('dotenv').config()
@@ -29,10 +28,6 @@ const say = (msg: string) => {
 
 client.addListener(`message#${process.env.IRC_CHANNEL || 'ddnet_irc_test'}`, async (from: string, message: string) => {
   onChatMessage(from, message, say)
-
-  cron.schedule('* * * * *', () => {
-    checkRemindings(say)
-  })
 })
 
 client.addListener('error', (message: string) => {
@@ -48,4 +43,13 @@ const printQueue = () => {
   if (msg) { say(msg) }
 }
 
+const remindQueue = () => {
+  if (remindings.length === 0) {
+    return
+  }
+  console.log(`got ${remindings.length} remidnigns`)
+  checkRemindings(say)
+}
+
 setInterval(printQueue, 2000)
+setInterval(remindQueue, 2000)

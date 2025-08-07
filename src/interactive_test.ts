@@ -1,5 +1,6 @@
 import { onChatMessage, onShellCommand } from './commands'
 import { messageQueue } from './queue'
+import { checkRemindings, remindings } from './remindings'
 
 const readline = require('readline')
 
@@ -30,7 +31,7 @@ const say = (msg: string) => {
   console.log('<chillerbot>', msg)
 }
 
-let shellMode = true
+let shellMode = false
 if (shellMode) {
   console.log('shell mode is active write $exit to return to chat')
 }
@@ -66,9 +67,18 @@ const printQueue = () => {
   if (messageQueue().length <= 0) {
     return
   }
+  console.log(`print queue ${messageQueue().length} items left`)
   const msg = messageQueue().shift()
   if (msg) { say(msg) }
-  prompt()
 }
 
-setInterval(printQueue, 200)
+const remindQueue = () => {
+  if (remindings.length === 0) {
+    return
+  }
+  console.log(`got ${remindings.length} remidnigns`)
+  checkRemindings(say)
+}
+
+setInterval(printQueue, 2000)
+setInterval(remindQueue, 2000)
