@@ -76,7 +76,6 @@ const remindQueue = () => {
   if (remindings.length === 0) {
     return
   }
-  console.log(`got ${remindings.length} remidnigns`)
   checkRemindings(say)
 }
 
