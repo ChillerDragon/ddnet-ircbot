@@ -588,7 +588,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
     const prId = prMatch[1]
-    say(`using chilors github maintainer credentials to automatically merge https://github.com/ddnet/ddnet/pulls/${prId} ...`)
+    say(`using chilors github maintainer credentials to automatically merge https://github.com/ddnet/ddnet/pull/${prId} ...`)
   } else if (cmd === 'whoami') {
     const rigRng = getRndInteger(0, 10)
     if (rigRng === 0) {
