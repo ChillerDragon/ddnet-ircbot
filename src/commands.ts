@@ -397,7 +397,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
         say('Sigmatation fault')
         return
       } else if (gigaRig === 32) {
-        say('@ryozuki there are more than 100 open prs — go close some')
+        say('@learath2 there are more than 100 open prs — go close some')
         return
       } else if (gigaRig === 33) {
         say('1                                                                  7')
