@@ -573,6 +573,24 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 89) {
         say('recently i was rizzing up cleverbot')
         return
+      } else if (gigaRig === 90) {
+        say('where a deen')
+        return
+      } else if (gigaRig === 91) {
+        say('i need a deen')
+        return
+      } else if (gigaRig === 92) {
+        say('I am LIBAN')
+        return
+      } else if (gigaRig === 93) {
+        say('I was a faithful friend...')
+        return
+      } else if (gigaRig === 94) {
+        say('I was a faithful friend from the start. The best friend? No. But I was a faithful friend. From map to map, I helped jao get across hard barriers. We talked and talked, about the future, what teeworlds could hold. We had wonderful moments together, ...')
+        return
+      } else if (gigaRig === 95) {
+        say("... memories that would last a lifetime. Whenever I would see him on a server, a new journey would spark up as we explored the wonders of each map. And now? he won't fucking transfer my points")
+        return
       }
     }
 
