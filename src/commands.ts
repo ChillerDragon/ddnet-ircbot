@@ -638,7 +638,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
 
     const remindDate = new Date(Date.now() + remindDelay)
-    const reminding = new Reminding(args.join(' '), from, remindDate)
+    const reminding = new Reminding(about, from, remindDate)
     remindings.push(reminding)
     say(`Helo ${from} I will remind you at ${remindDate} about your matter again.`)
   } else if (cmd === 'quiz') {
