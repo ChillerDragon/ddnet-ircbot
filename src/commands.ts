@@ -615,7 +615,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       say(`you is: ${from}`)
     }
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
-    if(args.length == 0) {
+    if(args.length === 0) {
       say('usage !remind [time in minutes] [text]')
       return
     }
