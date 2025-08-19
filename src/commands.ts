@@ -194,7 +194,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 
   // delete doubled spaces
   // const words = message.substring(1).split(' ').filter((a) => a !== '')
-  const words = message.substring(1).split(' ') // keep double spaces
+  const words = message.substring(1).trim().split(' ') // keep double spaces
   const cmd = words[0]
   const args = words.slice(1)
   let didRespond = true
@@ -615,7 +615,8 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       say(`you is: ${from}`)
     }
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
-    if(args.length < 0) {
+    console.log(args);
+    if(args.length == 0) {
       say('usage !remind [time in minutes] [text]')
       return
     }
