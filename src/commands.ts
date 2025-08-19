@@ -630,6 +630,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     let about;
 
     if(!Number.isNaN(time)) {
+      if(time > 60 * 24 * 7) {
+        time = 60 * 24 * 7
+      }
       remindDelay = time * 60 * 1000
       about = args.slice(1).join(' ')
     }
