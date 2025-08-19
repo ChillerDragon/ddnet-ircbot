@@ -616,19 +616,31 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
     if(args.length < 0) {
-      say('usage !remind [text]')
+      say('usage !remind [time in minutes] [text]')
       return
     }
-    if(remindings.length > 10) {
-      say(`There are already 10 remindingsbums pending. To unlock more consider buying chillerbot premium subscription.`)
+    if(remindings.length > 50) {
+      say(`There are already 50 remindingsbums pending. To unlock more consider buying chillerbot premium subscription.`)
       return
     }
 
-    const remindDelay = 24 * 60 * 60 * 1000
+    let time = parseInt(args[0], 10)
+
+    let remindDelay = 24 * 60 * 60 * 1000
+    let about;
+
+    if(!Number.isNaN(time)) {
+      remindDelay = time * 60 * 1000
+      about = args.slice(1).join(' ')
+    }
+    else {
+       about = args.join(' ')
+    }
+
     const remindDate = new Date(Date.now() + remindDelay)
     const reminding = new Reminding(args.join(' '), from, remindDate)
     remindings.push(reminding)
-    say(`Helo ${from} I will remind you in ${remindDelay} time units about your matter again.`)
+    say(`Helo ${from} I will remind you at ${remindDate} about your matter again.`)
   } else if (cmd === 'quiz') {
     if (process.env.ALLOW_QUIZ != '1') {
       // say('quiz off')
