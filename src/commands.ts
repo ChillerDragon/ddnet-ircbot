@@ -591,6 +591,30 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 95) {
         say("... memories that would last a lifetime. Whenever I would see him on a server, a new journey would spark up as we explored the wonders of each map. And now? he won't fucking transfer my points")
         return
+      } else if (gigaRig === 96) {
+        say('in trust me rust')
+        return
+      } else if (gigaRig === 97) {
+        say('in rust we trust')
+        return
+      } else if (gigaRig === 98) {
+        say('written in javascript BTW')
+        return
+      } else if (gigaRig === 99) {
+        say('I use nano BTW')
+        return
+      } else if (gigaRig === 100) {
+        say('undefined')
+        return
+      } else if (gigaRig === 101) {
+        say('null')
+        return
+      } else if (gigaRig === 102) {
+        say("Uncaught TypeError: Cannot read properties of undefined (reading 'split')")
+        return
+      } else if (gigaRig === 103) {
+        say("/home/niklaswinkler/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.2/lib/csv.rb:1668:in 'File#initialize': no implicit conversion of nil into String (TypeError)")
+        return
       }
     }
 
