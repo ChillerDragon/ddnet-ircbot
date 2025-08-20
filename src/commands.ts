@@ -184,6 +184,12 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       return
     }
   }
+
+  if(message === 'potat pls ping') {
+    say('pong')
+    return
+  }
+
   if (message[0] !== cmdPrefix() && message[0] !== deprecatedCmdPrefix()) {
     const qna = answerToCommonQuestion(message)
     if (qna && qna !== '') {
