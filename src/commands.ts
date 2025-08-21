@@ -223,6 +223,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
     const helpTxt = await sendHelpToChiler()
     say(`${process.env.MOD_PING} ${helpTxt}`)
+  } else if (cmd === 'wiki') {
+    say('dead, tldr is ryo upgraded debian 13, somehow the mediawiki instance inside docker says db is read only mode, ryo thought backups worked but they didnt for a year cuz a tool renamed from mysqldump to mariadb-dump')
+    return
   } else if (cmd === 'js' || cmd === 'node' || cmd === 'javascript' || cmd === 'deno') {
     const unsafeUnsanitizedUserinput = args.join(' ')
     if (process.env.ALLOW_JS != '1') {
