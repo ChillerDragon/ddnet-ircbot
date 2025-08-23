@@ -624,6 +624,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 103) {
         say("/home/niklaswinkler/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.2/lib/csv.rb:1668:in 'File#initialize': no implicit conversion of nil into String (TypeError)")
         return
+      } else if (gigaRig === 104) {
+        say('hot take: what if Meskalin ô.O (xush, ath), FruchtiHD (status.tw) and Mr Anderson (teecloud.eu, servercompass.com) are the same person?')
+        return
       }
     }
 
