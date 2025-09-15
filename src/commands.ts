@@ -185,7 +185,7 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     }
   }
 
-  if(message === 'potat pls ping') {
+  if (message === 'potat pls ping') {
     say('pong')
     return
   }
@@ -632,12 +632,12 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
 
     say(randVal.toString())
   } else if (cmd === 'merge') {
-    if(args.length !== 1) {
+    if (args.length !== 1) {
       say('usage: merge [pr id] - to merge ddnet pr using chiler maintainer credentials')
       return
     }
     const prMatch = args[0].match(new RegExp(/^#?(\d+)$/))
-    if (!prMatch) {
+    if (prMatch == null) {
       say('invalid pr id')
       return
     }
@@ -651,29 +651,28 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       say(`you is: ${from}`)
     }
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
-    if(args.length === 0) {
+    if (args.length === 0) {
       say('usage !remind [time in minutes] [text]')
       return
     }
-    if(remindings.length > 50) {
-      say(`There are already 50 remindingsbums pending. To unlock more consider buying chillerbot premium subscription.`)
+    if (remindings.length > 50) {
+      say('There are already 50 remindingsbums pending. To unlock more consider buying chillerbot premium subscription.')
       return
     }
 
     let time = parseInt(args[0], 10)
 
     let remindDelay = 24 * 60 * 60 * 1000
-    let about;
+    let about
 
-    if(!Number.isNaN(time)) {
-      if(time > 60 * 24 * 7) {
+    if (!Number.isNaN(time)) {
+      if (time > 60 * 24 * 7) {
         time = 60 * 24 * 7
       }
       remindDelay = time * 60 * 1000
       about = args.slice(1).join(' ')
-    }
-    else {
-       about = args.join(' ')
+    } else {
+      about = args.join(' ')
     }
 
     const remindDate = new Date(Date.now() + remindDelay)

@@ -16,15 +16,46 @@ const funding = (message: string): string | null => {
   return null
 }
 
+const disableTimeScore = (message: string): string | null => {
+  const response = 'to show points instead of time in the scoreboard remove this line https://github.com/ddnet/ddnet/blob/a9c316055f5d2579f6166152ec20c4241e0da456/src/game/server/gamecontroller.cpp#L600'
+  if (message === '!score') {
+    return response
+  }
+
+  const isQuestion = message.includes('how')
+  const scoreQuestion = message.includes('score') && isQuestion
+  if (!scoreQuestion) {
+    return null
+  }
+
+  const isTimeScoreRelated =
+    message.includes('board') ||
+      message.includes('tab') ||
+      message.includes('fng') ||
+      message.includes('block') ||
+      message.includes('ctf') ||
+      message.includes('time') ||
+      message.includes('00:')
+
+  if (!isTimeScoreRelated) {
+    return null
+  }
+
+  return response
+}
+
 export const answerToCommonQuestion = (message: string): string => {
   const questionFuncs = [
     downloadClang,
-    funding
+    funding,
+    disableTimeScore
   ]
 
-  for(const questionFunc of questionFuncs) {
+  message = message.toLowerCase()
+
+  for (const questionFunc of questionFuncs) {
     const answer = questionFunc(message)
-    if(answer !== null) {
+    if (answer !== null) {
       return answer
     }
   }

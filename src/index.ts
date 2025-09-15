@@ -3,7 +3,7 @@ import { messageQueue } from './queue'
 import { checkRemindings, remindings } from './remindings'
 
 const irc = require('matrix-org-irc')
-require('dotenv').config({quiet: true})
+require('dotenv').config({ quiet: true })
 
 if (!process.env.IRC_CHANNEL) {
   console.log('Error: IRC_CHANNEL is not set! check your .env file')
