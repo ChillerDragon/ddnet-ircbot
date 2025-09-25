@@ -627,6 +627,9 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
       } else if (gigaRig === 104) {
         say('hot take: what if Meskalin ô.O (xush, ath), FruchtiHD (status.tw) and Mr Anderson (teecloud.eu, servercompass.com) are the same person?')
         return
+      } else if (gigaRig === 105) {
+        say('yes it works not')
+        return
       }
     }
 
