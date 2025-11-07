@@ -16,6 +16,17 @@ const funding = (message: string): string | null => {
   return null
 }
 
+const hoster = (message: string): string | null => {
+  const which = message.includes('which') || message.includes('?') || message.includes('where') || message.includes('what')
+  const hoster = message.includes('host ') || message.includes('hoster') || message.includes('hosting') || message.includes('provider')
+  const has = message.includes('has') || message.includes('uses') || message.includes('run ') || message.includes('running') || message.includes('run?')
+  const ddnet = message.includes('ddnet') || message.includes('official') || message.includes('network') || message.includes('ddrace')
+  if (which && hoster && has && ddnet) {
+    return 'you can see the hosting providers ddnet uses here: https://github.com/ddnet/ddnet-web/blob/master/www/_includes/funding.html'
+  }
+  return null
+}
+
 const disableTimeScore = (message: string): string | null => {
   const response = 'to show points instead of time in the scoreboard remove this line https://github.com/ddnet/ddnet/blob/a9c316055f5d2579f6166152ec20c4241e0da456/src/game/server/gamecontroller.cpp#L600'
   if (message === '!score') {
@@ -48,6 +59,7 @@ export const answerToCommonQuestion = (message: string): string => {
   const questionFuncs = [
     downloadClang,
     funding,
+    hoster,
     disableTimeScore
   ]
 
