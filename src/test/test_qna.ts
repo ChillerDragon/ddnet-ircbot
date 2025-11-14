@@ -23,3 +23,12 @@ assert.equal(answerToCommonQuestion('how do i score?'), '')
 
 const host = 'you can see the hosting providers ddnet uses here: https://github.com/ddnet/ddnet-web/blob/master/www/_includes/funding.html'
 assert.equal(answerToCommonQuestion('does anybody know which provider ddnet uses in brazil? I am looking if I can get a server there'), host)
+
+const ask = 'Any coding or ddnet related questions are welcome here, just ask. See https://dontasktoask.com/ for more info'
+assert.equal(answerToCommonQuestion('i have question'), ask)
+assert.equal(answerToCommonQuestion('can I ask a question here?'), ask)
+assert.equal(answerToCommonQuestion('i have question how ddnet work'), '')
+assert.equal(answerToCommonQuestion('i have question on how to make mod'), '')
+assert.equal(answerToCommonQuestion('i have question on how to get unban'), '')
+assert.equal(answerToCommonQuestion('i have question: how compile ddnet'), '')
+assert.equal(answerToCommonQuestion('i have question: how run server'), '')

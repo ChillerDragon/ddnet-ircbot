@@ -55,12 +55,33 @@ const disableTimeScore = (message: string): string | null => {
   return response
 }
 
+const askToAsk = (message: string): string | null => {
+  const response = 'Any coding or ddnet related questions are welcome here, just ask. See https://dontasktoask.com/ for more info'
+  const question = message.includes('questio') || message.includes('frage')
+  const have = message.includes('can i') || message.includes('have')
+
+  // if actual questions are prefixed with "I have a question:"
+  // that is fine.
+  // Detecting questions is hard so we assume minimal length
+  // means actual context
+  if (message.length > 'i have an important question'.length) {
+    return null
+  }
+
+  if (have && question) {
+    return response
+  }
+
+  return null
+}
+
 export const answerToCommonQuestion = (message: string): string => {
   const questionFuncs = [
     downloadClang,
     funding,
     hoster,
-    disableTimeScore
+    disableTimeScore,
+    askToAsk,
   ]
 
   message = message.toLowerCase()
