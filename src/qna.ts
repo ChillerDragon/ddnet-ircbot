@@ -33,7 +33,8 @@ const disableTimeScore = (message: string): string | null => {
     return response
   }
 
-  const isQuestion = message.includes('how') || message.includes('help') || message.includes('i need')
+  const isHow = message.startsWith('how ') || message.includes(' how ') || message.includes(' how?')
+  const isQuestion = isHow || message.includes('help') || message.includes('i need')
   const scoreQuestion = message.includes('score') && isQuestion
   if (!scoreQuestion) {
     return null

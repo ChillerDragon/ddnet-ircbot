@@ -20,6 +20,7 @@ assert.equal(answerToCommonQuestion('i scored free food today'), '')
 assert.equal(answerToCommonQuestion('should CPlayer::m_Score really be an std::optional????'), '')
 assert.equal(answerToCommonQuestion('whats the score?'), '')
 assert.equal(answerToCommonQuestion('how do i score?'), '')
+assert.equal(answerToCommonQuestion('i would like to use showhud_score but only for my own time'), '')
 
 const host = 'you can see the hosting providers ddnet uses here: https://github.com/ddnet/ddnet-web/blob/master/www/_includes/funding.html'
 assert.equal(answerToCommonQuestion('does anybody know which provider ddnet uses in brazil? I am looking if I can get a server there'), host)
