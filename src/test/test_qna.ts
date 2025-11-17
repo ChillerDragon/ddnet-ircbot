@@ -23,6 +23,7 @@ assert.equal(answerToCommonQuestion("I actually recently proposed this in the mo
 // assert.equal(answerToCommonQuestion('i would like to use showhud_score but only for my own time'), '')
 // // assert.equal(answerToCommonQuestion("@robyt3 I am currently working through the scoreboard, can you explain to me why the score / time gets an y value of Row.y + (Row.h - FontSize) / 2.0f for the TextRender()->Text( function? I don't get how this aligns anything"), '')
 // // assert.equal(answerToCommonQuestion('did you see how simple the scoreboard is rn?'), '')
+// // assert.equal(answerToCommonQuestion('How does this look in a really big scoreboard if you click on bottom right player?'), '')
 
 const host = 'you can see the hosting providers ddnet uses here: https://github.com/ddnet/ddnet-web/blob/master/www/_includes/funding.html'
 assert.equal(answerToCommonQuestion('does anybody know which provider ddnet uses in brazil? I am looking if I can get a server there'), host)
