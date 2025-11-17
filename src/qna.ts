@@ -81,7 +81,7 @@ export const answerToCommonQuestion = (message: string): string => {
     downloadClang,
     funding,
     hoster,
-    disableTimeScore,
+    // disableTimeScore,
     askToAsk,
   ]
 
