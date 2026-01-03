@@ -653,6 +653,8 @@ export const onChatMessage = async (from: string, message: string, say: (msg: st
     } else {
       say(`you is: ${from}`)
     }
+  } else if (cmd === 'contact') {
+      say('you can contact chiler on wire: @zillyhuhn, matrix: @chillerdragon:matrix.org, email: chillerdragon@gmail.com, irc: https://webchat.quakenet.org/ #ddnet, xmpp: chillerdragon@yax.im')
   } else if (cmd === 'reminder' || cmd === 'remindme' || cmd === 'remind') {
     if (args.length === 0) {
       say('usage !remind [time in minutes] [text]')
