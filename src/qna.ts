@@ -33,9 +33,17 @@ const disableTimeScore = (message: string): string | null => {
     return response
   }
 
+  // special case for this statement which is not a question but clearly a question xd
+  // he never asked "how" just said "i cant" so we focus on the modded server part
+  //
+  //  hello guy i can't change time to score on my mod server (i'm all file checking)
+  const cant = message.includes("can't") || message.includes('help') || message.includes('cannot') || message.includes('cant') || message.includes('can not')
+  const cantChangeModdedServer =
+    cant && message.includes('change') && (message.includes('my mod') || message.includes('server') || message.includes('modded'))
+
   const isHow = message.startsWith('how ') || message.includes(' how ') || message.includes(' how?')
   const isQuestion = isHow || message.includes('help') || message.includes('i need')
-  const scoreQuestion = message.includes('score') && isQuestion
+  const scoreQuestion = message.includes('score') && (isQuestion || cantChangeModdedServer)
   if (!scoreQuestion) {
     return null
   }

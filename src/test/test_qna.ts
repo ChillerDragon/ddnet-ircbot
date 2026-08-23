@@ -16,6 +16,8 @@ assert.equal(answerToCommonQuestion("Hi how to change Time to Score only on serv
 assert.equal(answerToCommonQuestion('how can i show scores instead of time in my server ?'), score)
 assert.equal(answerToCommonQuestion('help i need to change tab score to numbers!'), score)
 assert.equal(answerToCommonQuestion('!score'), score)
+assert.equal(answerToCommonQuestion("hello guy i can't change time to score on my mod server (i'm all file checking)"), score)
+assert.equal(answerToCommonQuestion('hello guy. how i can add a score in my tab own mod server?'), score)
 assert.equal(answerToCommonQuestion('i scored free food today'), '')
 assert.equal(answerToCommonQuestion('should CPlayer::m_Score really be an std::optional????'), '')
 assert.equal(answerToCommonQuestion('whats the score?'), '')
